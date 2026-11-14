@@ -10,6 +10,7 @@ Explora dónde colocan wards en partidas competitivas de League of Legends y com
 - Elige un parche y una partida para ver sus wards en el mapa. Mueve el deslizador o pulsa **Reproducir** para recorrer la partida. Selecciona un punto de la línea de tiempo para resaltar su ubicación. Puedes ver la partida entera, revisar tramos de cinco minutos o abrir **Historial de wards** para consultar la lista cronológica. Cada observación de una transmisión enlaza al momento correspondiente del video.
 - Cambia entre **Puntos** y **Calor** y filtra por lado y tipo de ward. El filtro de rol requiere que la observación identifique quién colocó el ward. Las marcas permanecen visibles como historial acumulado hasta el instante elegido.
 - Compara los parches, filtra por liga y rol y abre **Tabla de picks** para consultar todos los campeones. La frecuencia divide las partidas en las que aparece un campeón por las partidas con picks de la selección. `Δ pp` es la diferencia en puntos porcentuales.
+- La lista de ligas y torneos corresponde al parche principal. Si cambias de parche y el torneo elegido carece de partidas en ese parche, el filtro vuelve a **Todas**.
 - En **Drafts y builds** puedes buscar por equipo y pasar entre partidas. Cada lado muestra sus cinco campeones por rol, los bans documentados, y los inventarios finales y adquisiciones por minuto cuando la fuente los registra. En partidas con wards, **Ver mapa de esta partida** abre su cronología.
 
 ## Cobertura

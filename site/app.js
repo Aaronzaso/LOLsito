@@ -225,10 +225,11 @@ function updateSelectors(primary, comparison) {
   const comparisonOptions = patchOptions.filter(([patch]) => patch !== selectedPatch);
   fillSelect('compare-patch', [['off', 'Sin comparación'], ...comparisonOptions], comparison,
     patches[patches.indexOf(selectedPatch) + 1] ?? 'off');
-  const leagues = [...new Set(games.map((game) => game.league))].sort((a, b) => a.localeCompare(b));
+  const leagues = [...new Set(games.filter((game) => game.patch === selectedPatch).map((game) => game.league))]
+    .sort((a, b) => a.localeCompare(b));
   const worldsOption = leagues.some((league) => league.startsWith('Worlds 2026')) ? [[worldsScope, 'Worlds 2026 · todo el torneo']] : [];
   fillSelect('league', [['all', 'Todas'], ...worldsOption, ...leagues.map((league) => [league, league])],
-    selection('league', 'all'));
+    selection('league', 'all'), 'all');
   fillSelect('role', [['all', 'Todos los roles'], ...Object.entries(roles)], selection('role', 'all'));
   setText('available-patches', `Parche actual ${currentPatch} · anterior ${previousPatch}`);
 }
@@ -337,7 +338,8 @@ function renderPicks(patch, compare, league, role) {
   setText('picks-count', counted(current.sampleSize, 'partida', 'partidas'));
   setText('picks-status', state.pickError ? 'No se pudo cargar la fuente de picks.' :
     [`${patch} · ${counted(current.sampleSize, 'partida', 'partidas')}`,
-      ...(usingComparison ? [`${compare} · ${counted(previous.sampleSize, 'partida', 'partidas')}`] : [])].join(' / '));
+      ...(usingComparison ? [previous.sampleSize ? `${compare} · ${counted(previous.sampleSize, 'partida', 'partidas')}` :
+        `${compare} · sin partidas para estos filtros`] : [])].join(' / '));
   return current.sampleSize;
 }
 
@@ -831,7 +833,9 @@ function choosePreset(type) {
   }
   byId('ward-minute').value = byId('ward-minute').max;
   updateSelectors(patch, compare);
-  if (type === 'pro') byId('league').value = worldsScope;
+  if (type === 'pro' && [...byId('league').options].some((option) => option.value === worldsScope)) {
+    byId('league').value = worldsScope;
+  }
   byId('draft-search').value = '';
   render();
 }
