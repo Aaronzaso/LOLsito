@@ -156,6 +156,7 @@ const state = {
   timelineKey: '',
   selectedWard: null,
   playback: null,
+  importRequest: 0,
 };
 
 const selection = (id, fallback = '') => byId(id)?.value || fallback;
@@ -321,7 +322,10 @@ function showWardDetail(ward, game) {
   const summary = byId('ward-summary');
   summary.replaceChildren(document.createTextNode(wardDescription(ward, game)));
   const source = ward.sourceUrl ?? game.sourceUrl;
-  if (safeUrl(source)) summary.append(document.createTextNode(' · '), sourceAnchor(source, 'Ver en la repetición'));
+  if (safeUrl(source)) {
+    summary.append(document.createTextNode(' · '),
+      sourceAnchor(source, ward.observed ? 'Ver en la repetición' : 'Ver fuente'));
+  }
 }
 
 function wardPoint(ward, game, size) {
@@ -421,6 +425,11 @@ function renderTimeline(game, wards, duration, seconds, key) {
       if (!entries.length) continue;
       const lane = node('div', undefined, 'timeline-lane');
       const track = node('div', undefined, 'timeline-track');
+      const simultaneous = new Map();
+      for (const ward of entries) {
+        if (!simultaneous.has(ward.seconds)) simultaneous.set(ward.seconds, []);
+        simultaneous.get(ward.seconds).push(ward);
+      }
       for (const ward of entries) {
         const description = wardDescription(ward, game);
         const event = node('button', undefined, 'timeline-event');
@@ -429,6 +438,11 @@ function renderTimeline(game, wards, duration, seconds, key) {
         event.dataset.seconds = ward.seconds;
         event.dataset.index = indexes.get(ward);
         event.style.left = `${100 * ward.seconds / duration}%`;
+        const stack = simultaneous.get(ward.seconds);
+        if (stack.length > 1) {
+          const offset = stack.indexOf(ward) * 12 / (stack.length - 1) - 6;
+          event.style.top = `calc(50% + ${offset}px)`;
+        }
         event.title = description;
         event.setAttribute('aria-label', description);
         event.addEventListener('click', () => jumpToWard(ward));
@@ -475,6 +489,7 @@ function renderWards(patch, league, role) {
   const gameValue = gameChanged ? gameOptions[0]?.[0] : selection('ward-game');
   if (gameChanged) fillSelect('ward-game', [['all', 'Todas las partidas'], ...gameOptions], gameValue, 'all');
   const gameId = selection('ward-game', 'all');
+  byId('ward-game').title = gameOptions.find(([id]) => id === gameId)?.[1] ?? 'Todas las partidas';
   if (gameChanged) {
     const types = [...new Set(available.map((ward) => labelType(ward.type)))].sort();
     fillSelect('ward-kind', [['all', 'Todos los tipos'], ...types.map((type) => [type, type])],
@@ -618,9 +633,12 @@ function choosePreset(type) {
 async function importWards(event) {
   const file = event.target.files[0];
   if (!file) return;
+  const request = ++state.importRequest;
+  event.target.value = '';
   try {
     assert(file.size <= 8 * 1024 * 1024, 'Usa un archivo de hasta 8 MB.');
     const text = (await file.text()).replace(/^\uFEFF/, '');
+    if (state.importRequest !== request) return;
     const data = /\.csv$/i.test(file.name) ? parseCsv(text) : normalizeWards(JSON.parse(text));
     assert(data.wards.length, 'El archivo no trae observaciones de wards.');
     state.importedWards = data;
@@ -638,9 +656,7 @@ async function importWards(event) {
     setText('ward-import-status', `${number.format(data.wards.length)} observaciones cargadas para esta sesión.`);
     toggle('ward-reset', true);
   } catch (error) {
-    setText('ward-import-status', `No se pudo importar el archivo. ${error.message}`);
-  } finally {
-    event.target.value = '';
+    if (state.importRequest === request) setText('ward-import-status', `No se pudo importar el archivo. ${error.message}`);
   }
 }
 
@@ -697,6 +713,7 @@ async function start() {
   byId('preset-pro')?.addEventListener('click', () => choosePreset('pro'));
   byId('ward-file')?.addEventListener('change', importWards);
   byId('ward-reset')?.addEventListener('click', () => {
+    state.importRequest += 1;
     state.importedWards = emptyWards;
     byId('ward-game').dataset.group = '';
     setText('ward-import-status', 'Se quitaron las observaciones importadas.');
