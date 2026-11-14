@@ -20,6 +20,7 @@ OUTPUT = Path(__file__).resolve().parents[1] / "site" / "data" / "picks.json"
 SIDES = {"1": "blue", "2": "red"}
 ROLES = ("top", "jng", "mid", "bot", "sup")
 BATCH_SIZE = 500
+TEAM_STATS = ("Kills", "Gold", "Towers", "Dragons", "Barons")
 
 
 def cargo(**params):
@@ -89,16 +90,17 @@ def duration_seconds(value):
 
 
 def scoreboard_games(where):
+    stats = ",".join(f"G.Team{team}{stat}=Side{team}{stat}" for team in SIDES for stat in TEAM_STATS)
     return pages(
         tables="ScoreboardGames=G,Tournaments=T",
         join_on="G.OverviewPage=T.OverviewPage",
         fields=(
-            "G.GameId=Id,G.Patch=Patch,G.Team1=Blue,G.Team2=Red,G.Winner=Winner,"
+            "G.GameId=Id,G.MatchId=SeriesId,G.Patch=Patch,G.Team1=Blue,G.Team2=Red,G.Winner=Winner,"
             "G.DateTime_UTC=Date,G.OverviewPage=Page,G.Team1Bans=BlueBans,"
             "G.Team2Bans=RedBans,G.Team1Picks=BluePicks,G.Team2Picks=RedPicks,"
             "G.Team1Players=BluePlayers,G.Team2Players=RedPlayers,"
             "G.VOD=Vod,G._pageName=Evidence,G.N_GameInMatch=Number,G.Gamelength=Duration,"
-            "T.Name=League,T.TournamentLevel=Tier"
+            f"T.Name=League,T.TournamentLevel=Tier,{stats}"
         ),
         where=where,
         order_by="G.DateTime_UTC DESC,G.GameId",
@@ -124,8 +126,12 @@ def to_game(row):
             picks.append({"champion": champion, "role": role, "side": side, "player": display_name})
     if len({pick["champion"] for pick in picks}) != 2 * len(ROLES):
         return None
-    return {
+    series_id = row["SeriesId"] or row["Id"].rsplit("_", 1)[0]
+    round_name = series_id.rsplit("_", 2)
+    game = {
         "id": row["Id"],
+        "seriesId": series_id,
+        "round": round_name[1] if len(round_name) == 3 else "",
         "patch": row["Patch"],
         "league": row["League"] or row["Page"],
         "tier": row["Tier"].lower() or "unknown",
@@ -145,6 +151,15 @@ def to_game(row):
             if (name := champion.strip()) and name not in {"None", "No Ban", "Unknown", "-"}
         ],
     }
+    stats = {side: {} for side in SIDES.values()}
+    for team, side in SIDES.items():
+        for field in TEAM_STATS:
+            value = row[f"Side{team}{field}"]
+            if re.fullmatch(r"\d+(?:\.\d+)?", value):
+                stats[side][field.lower()] = float(value) if "." in value else int(value)
+    if all(stats.values()):
+        game["stats"] = stats
+    return game
 
 
 def build_dataset(current, previous, worlds):

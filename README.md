@@ -6,20 +6,25 @@ Explora dónde colocan wards en partidas competitivas de League of Legends y com
 
 ## Uso del panel
 
-- Cambia entre **Mapa de wards**, **Picks por campeón** y **Drafts y builds**. Los filtros se conservan al cambiar. **Worlds 2026** carga el torneo internacional en 26.20 y **Parche actual y anterior** vuelve a la comparación de 26.22 con 26.21.
+- Cambia entre **Mapa de wards**, **Picks por campeón**, **Drafts y builds**, **Series** y **Scouting**. Los filtros se conservan al cambiar. **Worlds 2026** carga el torneo internacional en 26.20 y **Parche actual y anterior** vuelve a la comparación de 26.22 con 26.21.
 - Elige un parche y una partida para ver sus wards en el mapa. Mueve el deslizador o pulsa **Reproducir** para recorrer la partida. Selecciona un punto de la línea de tiempo para resaltar su ubicación. Puedes ver la partida entera, revisar tramos de cinco minutos o abrir **Historial de wards** para consultar la lista cronológica. Cada observación de una transmisión enlaza al momento correspondiente del video.
 - Cambia entre **Puntos** y **Calor** y filtra por lado y tipo de ward. El filtro de rol requiere que la observación identifique quién colocó el ward. Las marcas permanecen visibles como historial acumulado hasta el instante elegido.
 - Compara los parches, filtra por liga y rol y abre **Tabla de picks** para consultar todos los campeones. La frecuencia divide las partidas en las que aparece un campeón por las partidas con picks de la selección. `Δ pp` es la diferencia en puntos porcentuales.
 - La lista de ligas y torneos corresponde al parche principal. Si cambias de parche y el torneo elegido carece de partidas en ese parche, el filtro vuelve a **Todas**.
 - En **Drafts y builds** puedes buscar por equipo y pasar entre partidas. Cada lado muestra sus cinco campeones por rol, los bans documentados, y los inventarios finales y adquisiciones por minuto cuando la fuente los registra. En partidas con wards, **Ver mapa de esta partida** abre su cronología.
+- **Orden del draft** permite recorrer los picks y bans documentados paso a paso. El equipo que elige primero puede jugar en cualquiera de los dos lados del mapa. [Leaguepedia](https://lol.fandom.com/wiki/Module:CargoDeclare/PicksAndBansS7) · [Regla de primera selección](https://lolesports.com/en-US/lolesports/news/season-start-2026-lol-esports)
+- En **Series** puedes filtrar por equipo y fase, ver los marcadores registrados y saltar a los drafts o mapas de cada partida. Los datos del marcador incluyen oro, asesinatos, torres, dragones y barones cuando están disponibles.
+- En **Scouting** puedes elegir hasta cinco campeones, comparar sus resultados con aliados y rivales y abrir las partidas detrás de cada cruce. El porcentaje indica el resultado del grupo seleccionado en la muestra y se acompaña de su número de partidas.
 
 ## Cobertura
 
 La muestra de picks incluye **132 partidas del 26.22** (18 de ascenso a la LCP y 114 de otras competiciones) y **25 del 26.21** (competiciones secundarias). También incluye 94 de Worlds 2026, disputadas en **26.20**. El panel indica cuántas partidas quedan al aplicar los filtros. [Parche 26.22](https://www.leagueoflegends.com/en-us/news/game-updates/league-of-legends-patch-26-22-notes/) · [Parche 26.21](https://www.leagueoflegends.com/en-us/news/game-updates/league-of-legends-patch-26-21-notes/) · [Parche de Worlds](https://www.leagueoflegends.com/en-us/news/game-updates/league-of-legends-patch-26-20-notes/)
 
-El mapa incluye 158 observaciones de 14 partidas. En **26.22** hay 53 observaciones de cinco partidas de LCP Promotion. En **26.21** hay 87 de siete partidas de CELOL y Breeze of Glory. **Worlds 2026** aporta 18 observaciones de las primeras partidas de las dos semifinales. Las posiciones se estimaron sobre el minimapa de las transmisiones y cada marca indica cuándo se vio el ward. La cobertura depende de la cámara. [Partidas, observaciones y enlaces de video](site/data/wards.json)
+El mapa incluye 196 observaciones de 17 partidas. En **26.22** hay 53 observaciones de cinco partidas de LCP Promotion. En **26.21** hay 87 de siete partidas de CELOL y Breeze of Glory. **Worlds 2026** aporta 56 observaciones de cinco partidas, cuatro de las semifinales y una de la final. Las posiciones se estimaron sobre el minimapa y cada marca indica cuándo se vio el ward en la transmisión. El filtro **Detector y revisión** muestra 12 observaciones identificadas también por el detector de LOLsito y verificadas visualmente. [Observaciones de VOD](site/data/wards.json) · [Prueba de pyLoL y del detector](scripts/wards-vod-notes.md)
 
 Las builds cubren las 94 partidas de Worlds de la muestra documentada, hasta las semifinales, y 18 partidas de LCP 2027 Promotion en 26.22. Los inventarios y las adquisiciones vienen de PEM.LOL y se contrastan con el campeón y rol de los diez jugadores del marcador. **Adquisiciones registradas** muestra los eventos de incorporación de objetos que publica esa fuente. Cada ficha enlaza al detalle de origen. [Worlds en PEM.LOL](https://pem.lol/worlds/2026/matches) · [LCP Promotion en PEM.LOL](https://pem.lol/lcp/2027/promotion/matches)
+
+El orden del draft está verificado en 193 partidas, 94 de Worlds 2026, 86 del parche 26.22 y 13 de 26.21. Las 20 acciones se contrastan por equipo con el marcador. Las series, el orden del draft y scouting siguen los enfoques de [Worlds 2026 Live](https://github.com/hyderoo/worlds-2026-live), [LoL-Draft](https://github.com/DeusExMachina1993/LoL-Draft) y [LoL Analytics Dashboard](https://github.com/chdoyle1/lol-analytics-dashboard).
 
 Los picks provienen de los marcadores de Leaguepedia. El importador adapta sus campos, normaliza las posiciones y agrupa los diez picks por partida. Los datos adaptados conservan la licencia CC BY-SA 3.0. El minimapa y los retratos de campeones provienen de Riot Data Dragon. [Leaguepedia](https://lol.fandom.com/wiki/Module:CargoDeclare/ScoreboardGames) · [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) · [Riot Data Dragon](https://developer.riotgames.com/docs/lol#data-dragon)
 
@@ -45,6 +50,7 @@ Ejecuta el importador indicando el parche actual y el anterior. Añade `--no-wor
 
 ```sh
 python scripts/picks_import.py --current 26.22 --previous 26.21
+python scripts/drafts_import.py
 python scripts/builds_import.py
 python scripts/validate-data.py
 ```

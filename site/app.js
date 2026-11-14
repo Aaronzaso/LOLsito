@@ -1,3 +1,6 @@
+import { createScouting } from './scouting.js?v=1';
+import { createSeriesExplorer, renderDraftOrder } from './series.js?v=1';
+
 const byId = (id) => document.getElementById(id);
 const desktop = location.origin === 'https://lolsito.local';
 const roles = { top: 'Top', jng: 'Jungla', mid: 'Mid', bot: 'ADC', sup: 'Soporte' };
@@ -176,6 +179,8 @@ const state = {
   champions: {},
   builds: new Map(),
   buildSources: [],
+  drafts: new Map(),
+  draftSource: null,
   items: {},
   pickError: false,
   wardError: false,
@@ -185,6 +190,11 @@ const state = {
   playback: null,
   importRequest: 0,
 };
+
+const scouting = createScouting(byId('scout-content'), { championIcon, matchLabel, onOpenGame: openMatch });
+const seriesExplorer = createSeriesExplorer(byId('series'), { openGame: openMatch });
+let scoutingScope = '';
+let seriesScope = '';
 
 const selection = (id, fallback = '') => byId(id)?.value || fallback;
 const patchOrder = (a, b) => b.localeCompare(a, 'es', { numeric: true });
@@ -427,6 +437,7 @@ function renderDraft() {
     gameMatches(game, patch, league) && `${game.blueTeam} ${game.redTeam}`.toLocaleLowerCase().includes(search));
   const select = byId('draft-game');
   const coverage = games.reduce((count, game) => count + Number(state.builds.has(game.id)), 0);
+  const ordered = games.reduce((count, game) => count + Number(state.drafts.has(game.id)), 0);
   const selected = select.value;
   const optionKey = JSON.stringify(games.map((game) => game.id));
   if (select.dataset.options !== optionKey) {
@@ -438,7 +449,7 @@ function renderDraft() {
   const index = games.findIndex((game) => game.id === select.value);
   byId('draft-prev').disabled = index < 1;
   byId('draft-next').disabled = index < 0 || index >= games.length - 1;
-  setText('draft-status', games.length ? `${counted(games.length, 'partida', 'partidas')} · ${coverage} con builds` :
+  setText('draft-status', games.length ? `${counted(games.length, 'partida', 'partidas')} · ${coverage} con builds · ${ordered} con orden de draft` :
     'No hay partidas con draft para estos filtros.');
   toggle('draft-body', index >= 0);
   if (index < 0) return;
@@ -448,19 +459,10 @@ function renderDraft() {
   const links = [sourceAnchor(game.source, 'Marcador de la partida')];
   if (game.vod) links.push(sourceAnchor(game.vod, 'Repetición'));
   if (build?.sourceUrl) links.push(sourceAnchor(build.sourceUrl, 'Fuente de objetos'));
-  const wardSelector = byId('ward-game');
-  if ([...wardSelector.options].some((option) => option.value === game.id)) {
+  if ([...byId('ward-game').options].some((option) => option.value === game.id)) {
     const showMap = node('button', 'Ver mapa de esta partida', 'button');
     showMap.type = 'button';
-    showMap.addEventListener('click', () => {
-      wardSelector.value = game.id;
-      byId('role').value = 'all';
-      byId('ward-side').value = 'all';
-      byId('ward-kind').value = 'all';
-      render();
-      byId('tab-vision').click();
-      byId('tab-vision').focus();
-    });
+    showMap.addEventListener('click', () => openMatch(game, 'vision'));
     links.push(showMap);
   }
   byId('draft-links').replaceChildren(...links);
@@ -468,6 +470,33 @@ function renderDraft() {
   setText('draft-build-status', build ? 'Los objetos corresponden al inventario final de cada jugador.' :
     state.buildError ? 'No se pudo cargar la fuente de objetos. El draft sigue disponible.' :
       'La fuente de esta partida incluye el draft. El inventario final está pendiente.');
+  const order = byId('draft-order');
+  if (order.dataset.game !== game.id) {
+    renderDraftOrder(order, game, state.drafts.get(game.id), championIcon);
+    order.dataset.game = game.id;
+  }
+}
+
+function openMatch(game, panel = 'draft') {
+  const currentPatch = selection('patch');
+  const compare = selection('compare-patch', 'off');
+  if (!gameMatches(game, game.patch, selection('league', 'all'))) byId('league').value = 'all';
+  if (game.patch !== currentPatch) updateSelectors(game.patch, compare === game.patch ? currentPatch : compare);
+  if (panel === 'vision') {
+    for (const id of ['role', 'ward-side', 'ward-kind', 'ward-method']) byId(id).value = 'all';
+    const select = byId('ward-game');
+    select.dataset.group = '';
+    select.dataset.preferred = game.id;
+    byId('ward-minute').dataset.scope = '';
+    render();
+  } else {
+    byId('draft-search').value = '';
+    render();
+    byId('draft-game').value = game.id;
+    renderDraft();
+  }
+  byId(`tab-${panel}`).click();
+  byId(`tab-${panel}`).focus();
 }
 
 function wardDescription(ward, game) {
@@ -475,6 +504,7 @@ function wardDescription(ward, game) {
     ward.player, roles[ward.role], ward.location ?? ward.zone, `${game.blueTeam} vs. ${game.redTeam}`];
   if (ward.approximate) parts.push('posición aproximada');
   if (ward.observed) parts.push('visto en la repetición');
+  if (ward.detection === 'cv-reviewed') parts.push('detectado en fotograma y revisado');
   return parts.filter(Boolean).join(' · ');
 }
 
@@ -699,13 +729,16 @@ function renderWards(patch, league, role) {
   const seconds = Number(minuteSlider.value);
   const side = selection('ward-side', 'all');
   const type = selection('ward-kind', 'all');
+  const method = selection('ward-method', 'all');
   const density = ['density', 'heat', 'heatmap'].includes(selection('ward-mode'));
   toggle('ward-side-legend', !density);
   toggle('ward-heat-legend', density);
   const eligible = relevant.filter((ward) => (side === 'all' || side === ward.side) &&
-    (type === 'all' || type === labelType(ward.type)) && (role === 'all' || role === ward.role));
+    (type === 'all' || type === labelType(ward.type)) && (role === 'all' || role === ward.role) &&
+    (method === 'all' || (method === 'cv' && ward.detection === 'cv-reviewed') ||
+      (method === 'vod' && ward.observed) || (method === 'events' && !ward.observed)));
   const filtered = eligible.filter((ward) => ward.seconds <= seconds);
-  renderTimeline(game, eligible, duration, seconds, JSON.stringify([sliderScope, side, type, role]));
+  renderTimeline(game, eligible, duration, seconds, JSON.stringify([sliderScope, side, type, role, method]));
   setText('ward-minute-value', relevant.length ? minuteSeconds(seconds) : '—');
   minuteSlider.setAttribute('aria-valuetext', `${minuteSeconds(seconds)} de ${minuteSeconds(duration)}`);
   const layer = byId('ward-layer');
@@ -777,7 +810,7 @@ function renderWards(patch, league, role) {
 function renderSources() {
   const sources = new Map();
   for (const source of [
-    ...state.picks.sources, ...state.publishedWards.sources, ...state.localWards.sources, ...state.buildSources,
+    ...state.picks.sources, ...state.publishedWards.sources, ...state.localWards.sources, ...state.buildSources, state.draftSource,
     { name: 'Notas del parche actual de Riot', url: `https://www.leagueoflegends.com/es-mx/news/game-updates/league-of-legends-patch-${state.picks.currentPatch.replace('.', '-')}-notes/` },
     { name: 'Notas del parche anterior de Riot', url: `https://www.leagueoflegends.com/es-mx/news/game-updates/league-of-legends-patch-${state.picks.previousPatch.replace('.', '-')}-notes/` },
   ]) {
@@ -805,6 +838,7 @@ function render() {
   const picks = renderPicks(patch, compare, league, role);
   const wards = renderWards(patch, league, role);
   renderDraft();
+  refreshExplorers(patch, compare, league);
   if (state.pickError || state.wardError) {
     setText('app-status', 'Una fuente no se pudo cargar. Puedes consultar los datos disponibles.');
   } else {
@@ -815,6 +849,29 @@ function render() {
   byId('preset-pro')?.setAttribute('aria-pressed', String(league === worldsScope));
   const showPatches = [patch, compare !== 'off' ? compare : ''].filter(Boolean).join(' vs. ');
   setText('view-patches', showPatches);
+}
+
+function refreshExplorers(patch, compare, league) {
+  const scope = JSON.stringify([patch, league]);
+  const comparisonScope = JSON.stringify([scope, compare]);
+  const wardGames = wardData().games;
+  const currentSeriesScope = JSON.stringify([scope, [...wardGames.keys()]]);
+  if (scoutingScope === comparisonScope && seriesScope === currentSeriesScope) return;
+  const games = state.picks.games.filter((game) => gameMatches(game, patch, league));
+  if (scoutingScope !== comparisonScope) {
+    scoutingScope = comparisonScope;
+    scouting.update({
+      games, patch, comparisonPatch: compare === 'off' ? null : compare,
+      comparisonGames: state.picks.games.filter((game) => gameMatches(game, compare, league)),
+    });
+  }
+  if (seriesScope !== currentSeriesScope) {
+    seriesScope = currentSeriesScope;
+    const catalog = new Set(games.map((game) => game.id));
+    const wardOnly = [...wardGames.values()].filter((game) =>
+      !catalog.has(game.id) && gameMatches(game, patch, league) && game.date && (game.number || game.gameNumber));
+    seriesExplorer.update([...games, ...wardOnly], { builds: state.builds, wards: wardGames });
+  }
 }
 
 function choosePreset(type) {
@@ -828,7 +885,7 @@ function choosePreset(type) {
   if (byId('league')) byId('league').value = 'all';
   if (byId('role')) byId('role').value = 'all';
   byId('ward-game').dataset.group = '';
-  for (const id of ['ward-kind', 'ward-side']) {
+  for (const id of ['ward-kind', 'ward-side', 'ward-method']) {
     if (byId(id)) byId(id).value = 'all';
   }
   byId('ward-minute').value = byId('ward-minute').max;
@@ -902,7 +959,7 @@ async function importWards(event) {
     byId('ward-game').dataset.group = '';
     byId('ward-game').dataset.preferred = importedGame.id;
     byId('ward-minute').dataset.scope = '';
-    for (const id of ['ward-kind', 'ward-side']) {
+    for (const id of ['ward-kind', 'ward-side', 'ward-method']) {
       if (byId(id)) byId(id).value = 'all';
     }
     byId('ward-minute').value = byId('ward-minute').max;
@@ -936,7 +993,7 @@ async function refreshLocalWards(selectImport = false) {
   const imported = selectImport ? state.localWards.games.find((game) => previous.get(game.id) !== JSON.stringify(game)) : null;
   const gameId = imported?.id ?? selection('ward-game', 'all');
   if (imported) {
-    for (const id of ['league', 'role', 'ward-kind', 'ward-side']) byId(id).value = 'all';
+    for (const id of ['league', 'role', 'ward-kind', 'ward-side', 'ward-method']) byId(id).value = 'all';
   }
   if (gameId !== 'all') byId('ward-game').dataset.preferred = gameId;
   byId('ward-game').dataset.group = '';
@@ -992,16 +1049,21 @@ function configureDesktopImport() {
 async function start() {
   configureTabs();
   const signal = AbortSignal.timeout(15_000);
-  const [picks, wards, champions, builds, items] = await Promise.allSettled([
+  const [picks, wards, champions, builds, items, drafts] = await Promise.allSettled([
     fetchData('picks', signal),
     fetchData('wards', signal),
     fetch('./assets/champions/index.json', { signal }).then((response) => response.json()),
     fetchData('builds', signal),
     fetch('./assets/items/index.json', { signal }).then((response) => response.json()),
+    fetchData('drafts', signal),
     desktop && loadLocalWards(),
   ]);
   if (champions.status === 'fulfilled') state.champions = champions.value;
   if (items.status === 'fulfilled') state.items = items.value;
+  if (drafts.status === 'fulfilled' && Array.isArray(drafts.value.games)) {
+    state.drafts = new Map(drafts.value.games.map((game) => [game.id, game]));
+    state.draftSource = drafts.value.source ?? null;
+  }
   if (builds.status === 'fulfilled' && Array.isArray(builds.value.games)) {
     state.builds = new Map(builds.value.games.map((game) => [game.id, game]));
     state.buildSources = builds.value.sources ?? [];
@@ -1026,7 +1088,7 @@ async function start() {
     updateSelectors(patch, patch === comparison ? event.target.dataset.selected : comparison);
     render();
   });
-  for (const id of ['compare-patch', 'league', 'role', 'ward-side', 'ward-game', 'ward-kind', 'ward-mode']) {
+  for (const id of ['compare-patch', 'league', 'role', 'ward-side', 'ward-game', 'ward-kind', 'ward-method', 'ward-mode']) {
     byId(id)?.addEventListener('change', render);
   }
   byId('pick-sort')?.addEventListener('change', () => renderPicks(

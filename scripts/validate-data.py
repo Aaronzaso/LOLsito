@@ -30,6 +30,7 @@ def main():
         roles = Counter((pick["side"], pick["role"]) for pick in game["picks"])
         assert roles == {(side, role): 1 for side in ("blue", "red") for role in ROLES}, game["id"]
         assert all(pick["champion"] for pick in game["picks"]), game["id"]
+        assert game["seriesId"] and game["round"], game["id"]
 
     for ward in ward_data["wards"]:
         game = games[ward["gameId"]]
@@ -41,12 +42,23 @@ def main():
         assert not duration or ward["seconds"] <= duration, ward
         if ward.get("observed"):
             assert ward.get("approximate") and ward["sourceUrl"].startswith("https://"), ward
+        if ward.get("detection") == "cv-reviewed":
+            assert ward.get("observed") and ward.get("approximate") and game["coverage"] == "vod", ward
         if game.get("coverage") == "complete":
             assert not ward.get("observed") and not ward.get("approximate") and ward["side"] != "unknown", ward
         if game["id"] in drafts:
             assert game["patch"] == drafts[game["id"]]["patch"], game
 
     builds = read("builds.json")
+    orders = read("drafts.json")["games"]
+    assert len({order["id"] for order in orders}) == len(orders), "IDs repetidos en orden de draft"
+    for order in orders:
+        actions = order["actions"]
+        assert len(actions) == 20 and urlsplit(order["sourceUrl"]).scheme == "https", order["id"]
+        assert all(action["kind"] in {"pick", "ban"} and action["side"] in {"blue", "red"} for action in actions), order["id"]
+        for kind in ("pick", "ban"):
+            expected = Counter((row["side"], row["champion"]) for row in drafts[order["id"]][f"{kind}s"])
+            assert Counter((row["side"], row["champion"]) for row in actions if row["kind"] == kind) == expected, order["id"]
     with (DATA.parent / "assets" / "items" / "index.json").open(encoding="utf-8") as file:
         items = json.load(file)
     assert len({game["id"] for game in builds["games"]}) == len(builds["games"]), "IDs repetidos en builds"
@@ -67,6 +79,7 @@ def main():
     print("Wards observados:", dict(Counter(games[ward["gameId"]]["patch"] for ward in ward_data["wards"])))
     print("Partidas con datos de wards:", dict(Counter(game["patch"] for game in games.values())))
     print("Partidas con builds:", dict(Counter(drafts[game["id"]]["patch"] for game in builds["games"])))
+    print("Partidas con orden de draft:", dict(Counter(drafts[game["id"]]["patch"] for game in orders)))
 
 
 if __name__ == "__main__":

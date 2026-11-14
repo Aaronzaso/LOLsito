@@ -7,8 +7,10 @@
     <meta name="description" content="Explora dónde wardean los profesionales de League of Legends y compara sus picks por parche.">
     <title>LOLsito · Wards y picks profesionales</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23293722'/%3E%3Cpath d='M16 8l8 8-8 8-8-8z' fill='none' stroke='%23d4eca3'/%3E%3Cpath d='M16 12l4 4-4 4-4-4z' fill='%23d4eca3'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="./styles.css?v=5">
-    <script src="./app.js?v=6" type="module"></script>
+    <link rel="stylesheet" href="./styles.css?v=6">
+    <link rel="stylesheet" href="./scouting.css?v=1">
+    <link rel="stylesheet" href="./series.css?v=1">
+    <script src="./app.js?v=7" type="module"></script>
   </head>
   <body>
     <a class="skip-link" href="#explorador">Saltar al explorador</a>
@@ -27,8 +29,8 @@
     <main id="explorador" class="container">
       <section class="page-intro" aria-labelledby="page-title">
         <div>
-          <h1 id="page-title">Wards y picks profesionales</h1>
-          <p>Explora la visión y compara los picks de partidas competitivas de League of Legends.</p>
+          <h1 id="page-title">Análisis de LoL competitivo</h1>
+          <p>Explora la visión, los drafts y las composiciones de las series profesionales.</p>
         </div>
         <p class="coverage" id="available-patches"></p>
       </section>
@@ -65,6 +67,8 @@
           <button type="button" id="tab-vision" role="tab" aria-controls="vision" aria-selected="true">Mapa de wards</button>
           <button type="button" id="tab-picks" role="tab" aria-controls="picks" aria-selected="false" tabindex="-1">Picks por campeón</button>
           <button type="button" id="tab-draft" role="tab" aria-controls="draft" aria-selected="false" tabindex="-1">Drafts y builds</button>
+          <button type="button" id="tab-series" role="tab" aria-controls="series" aria-selected="false" tabindex="-1">Series</button>
+          <button type="button" id="tab-scout" role="tab" aria-controls="scout" aria-selected="false" tabindex="-1">Scouting</button>
         </div>
         <section id="vision" class="panel" role="tabpanel" aria-labelledby="tab-vision">
           <div class="panel-header">
@@ -97,6 +101,15 @@
             <label class="field">
               <span>Tipo de ward</span>
               <select id="ward-kind"><option value="">Todos</option></select>
+            </label>
+            <label class="field">
+              <span>Origen del punto</span>
+              <select id="ward-method">
+                <option value="all">Todos</option>
+                <option value="cv">Detector y revisión</option>
+                <option value="vod">Observaciones de video</option>
+                <option value="events">Eventos de colocación</option>
+              </select>
             </label>
           </div>
           <div class="ward-coverage-line">
@@ -248,7 +261,43 @@
             </div>
             <div class="draft-teams" id="draft-teams"></div>
             <p class="section-status" id="draft-build-status"></p>
+            <div class="draft-order" id="draft-order"></div>
           </div>
+        </section>
+
+        <section id="series" class="panel" role="tabpanel" aria-labelledby="tab-series" hidden>
+          <div class="panel-header">
+            <div>
+              <h2>Series competitivas</h2>
+              <p>Marcadores y partidas del parche principal</p>
+            </div>
+          </div>
+          <div class="series-controls">
+            <label class="field">
+              <span>Buscar equipo</span>
+              <input id="series-search" type="search" placeholder="Ej. Bilibili" autocomplete="off">
+            </label>
+            <label class="field">
+              <span>Fase</span>
+              <select id="series-phase"></select>
+            </label>
+            <label class="field">
+              <span>Serie</span>
+              <select id="series-list"></select>
+            </label>
+          </div>
+          <p class="section-status" id="series-status" role="status"></p>
+          <div id="series-detail"></div>
+        </section>
+
+        <section id="scout" class="panel" role="tabpanel" aria-labelledby="tab-scout" hidden>
+          <div class="panel-header">
+            <div>
+              <h2>Scouting de composiciones</h2>
+              <p>Compara cómo rindió una selección de campeones junto a sus aliados y contra sus rivales.</p>
+            </div>
+          </div>
+          <div id="scout-content"></div>
         </section>
       </div>
 
