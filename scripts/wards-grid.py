@@ -5,9 +5,11 @@ from collections import Counter
 from datetime import date
 import json
 import math
+import os
 from pathlib import Path
 import re
 import sys
+from tempfile import NamedTemporaryFile
 from urllib.parse import urlsplit
 
 
@@ -175,11 +177,48 @@ def load_game(entry, folder):
     return game, wards
 
 
+def save_local(data):
+    """Replace the same match by ID, retaining other local imports."""
+    local_app_data = os.environ.get('LOCALAPPDATA')
+    if not local_app_data:
+        raise ValueError('La opción --local requiere la carpeta LOCALAPPDATA de Windows')
+    folder = Path(local_app_data) / 'LOLsito'
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / 'wards-local.json'
+    if target.exists():
+        previous = read_json(target)
+        complete_ids = {game['id'] for game in previous['games'] if game['coverage'] == 'complete'}
+        replaced = {game['id'] for game in data['games'] if game['coverage'] == 'complete' or game['id'] not in complete_ids}
+        for game in data['games']:
+            if game['id'] not in replaced:
+                print(f'{game["id"]}: se conserva el registro completo que ya estaba guardado', file=sys.stderr)
+        data['games'] = [game for game in previous['games'] if game['id'] not in replaced] + [
+            game for game in data['games'] if game['id'] in replaced]
+        data['wards'] = [ward for ward in previous['wards'] if ward['gameId'] not in replaced] + [
+            ward for ward in data['wards'] if ward['gameId'] in replaced]
+        data['sources'] = list({source['url']: source for source in previous['sources'] + data['sources']}.values())
+
+    pending = None
+    try:
+        with NamedTemporaryFile(mode='w', encoding='utf-8', dir=folder, suffix='.tmp', delete=False) as stream:
+            pending = Path(stream.name)
+            json.dump(data, stream, ensure_ascii=False)
+            stream.write('\n')
+        pending.replace(target)
+    finally:
+        if pending is not None:
+            pending.unlink(missing_ok=True)
+    return target
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('manifest', type=Path, help='JSON con la lista de fichas de partidas y sus archivos de GRID')
-    parser.add_argument('output', type=Path, help='Ruta del JSON de wards para importar en LOLsito')
+    parser.add_argument('output', type=Path, nargs='?', help='Ruta del JSON de wards para importar en LOLsito')
+    parser.add_argument('--local', action='store_true', help='Guarda las partidas en la biblioteca local de LOLsito para Windows')
     args = parser.parse_args()
+    if args.local == (args.output is not None):
+        parser.error('Indica una ruta de salida o usa --local')
     try:
         entries = read_json(args.manifest)
         if not isinstance(entries, list) or not entries:
@@ -193,12 +232,16 @@ def main():
             game_ids.add(game['id'])
             data['games'].append(game)
             data['wards'].extend(wards)
-        with args.output.open('x', encoding='utf-8') as stream:
-            json.dump(data, stream, ensure_ascii=False, indent=2)
-            stream.write('\n')
+        if args.local:
+            target = save_local(data)
+        else:
+            target = args.output
+            with target.open('x', encoding='utf-8') as stream:
+                json.dump(data, stream, ensure_ascii=False, indent=2)
+                stream.write('\n')
     except (OSError, ValueError, KeyError, AttributeError, TypeError) as error:
         parser.exit(1, f'Error al convertir wards: {error}\n')
-    print(f'{len(data["wards"])} wards de {len(data["games"])} partidas en {args.output}')
+    print(f'{len(data["wards"])} wards de {len(data["games"])} partidas en {target}')
 
 
 if __name__ == '__main__':

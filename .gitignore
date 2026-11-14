@@ -4,3 +4,6 @@ __pycache__/
 *.tmp
 .env
 .env.*
+desktop/bin/
+desktop/obj/
+site/data/wards-local.json

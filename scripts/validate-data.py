@@ -3,6 +3,7 @@
 import json
 from collections import Counter
 from pathlib import Path
+from urllib.parse import urlsplit
 
 DATA = Path(__file__).resolve().parents[1] / "site" / "data"
 ROLES = {"top", "jng", "mid", "bot", "sup"}
@@ -44,9 +45,28 @@ def main():
             assert not ward.get("observed") and not ward.get("approximate") and ward["side"] != "unknown", ward
         if game["id"] in drafts:
             assert game["patch"] == drafts[game["id"]]["patch"], game
+
+    builds = read("builds.json")
+    with (DATA.parent / "assets" / "items" / "index.json").open(encoding="utf-8") as file:
+        items = json.load(file)
+    assert len({game["id"] for game in builds["games"]}) == len(builds["games"]), "IDs repetidos en builds"
+    for game in builds["games"]:
+        draft = drafts[game["id"]]
+        assert urlsplit(game["sourceUrl"]).scheme == "https", game["id"]
+        keys = ("side", "role", "champion")
+        assert Counter(tuple(player[key] for key in keys) for player in game["players"]) == Counter(
+            tuple(pick[key] for key in keys) for pick in draft["picks"]
+        ), game["id"]
+        for player in game["players"]:
+            order = player.get("order", [])
+            item_ids = player["items"] + [event["itemId"] for event in order]
+            item_ids += [player[key] for key in ("trinket", "roleItem") if player.get(key)]
+            assert all(str(item) in items for item in item_ids), (game["id"], player["player"])
+            assert all(0 <= event["seconds"] <= draft["durationSeconds"] for event in order), (game["id"], player["player"])
     print("Partidas con picks:", dict(Counter(game["patch"] for game in drafts.values())))
     print("Wards observados:", dict(Counter(games[ward["gameId"]]["patch"] for ward in ward_data["wards"])))
     print("Partidas con datos de wards:", dict(Counter(game["patch"] for game in games.values())))
+    print("Partidas con builds:", dict(Counter(drafts[game["id"]]["patch"] for game in builds["games"])))
 
 
 if __name__ == "__main__":

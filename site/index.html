@@ -7,11 +7,8 @@
     <meta name="description" content="Explora dónde wardean los profesionales de League of Legends y compara sus picks por parche.">
     <title>LOLsito · Wards y picks profesionales</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23293722'/%3E%3Cpath d='M16 8l8 8-8 8-8-8z' fill='none' stroke='%23d4eca3'/%3E%3Cpath d='M16 12l4 4-4 4-4-4z' fill='%23d4eca3'/%3E%3C/svg%3E">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="./styles.css?v=2">
-    <script src="./app.js?v=2" type="module"></script>
+    <link rel="stylesheet" href="./styles.css?v=4">
+    <script src="./app.js?v=4" type="module"></script>
   </head>
   <body>
     <a class="skip-link" href="#explorador">Saltar al explorador</a>
@@ -22,8 +19,6 @@
           LOLsito
         </a>
         <nav class="main-nav" aria-label="Secciones del panel">
-          <a href="#vision">Mapa de wards</a>
-          <a href="#picks">Picks</a>
           <a href="#fuentes">Fuentes</a>
         </nav>
       </div>
@@ -40,7 +35,7 @@
 
       <section class="filter-shell" aria-label="Filtro de partidas">
         <div class="presets" aria-label="Selección rápida">
-          <button type="button" id="preset-pro" class="button preset-button">Ver parche de Worlds</button>
+          <button type="button" id="preset-pro" class="button preset-button">Worlds 2026</button>
           <button type="button" id="preset-live" class="button preset-button">Parche actual y anterior</button>
         </div>
         <div class="filter-fields">
@@ -57,7 +52,7 @@
             <select id="league"><option value="">Todos</option></select>
           </label>
           <label class="field">
-            <span>Rol</span>
+            <span>Rol en mapa y picks</span>
             <select id="role"><option value="">Todos</option></select>
           </label>
         </div>
@@ -66,7 +61,12 @@
       <noscript><p class="app-status">Activa JavaScript para cargar los datos y usar los filtros.</p></noscript>
 
       <div class="dashboard">
-        <section id="vision" class="panel" aria-labelledby="vision-title">
+        <div class="dashboard-tabs" role="tablist" aria-label="Análisis de partidas">
+          <button type="button" id="tab-vision" role="tab" aria-controls="vision" aria-selected="true">Mapa de wards</button>
+          <button type="button" id="tab-picks" role="tab" aria-controls="picks" aria-selected="false" tabindex="-1">Picks por campeón</button>
+          <button type="button" id="tab-draft" role="tab" aria-controls="draft" aria-selected="false" tabindex="-1">Drafts y builds</button>
+        </div>
+        <section id="vision" class="panel" role="tabpanel" aria-labelledby="tab-vision">
           <div class="panel-header">
             <div>
               <h2 id="vision-title">Mapa de wards</h2>
@@ -103,65 +103,76 @@
             <p class="section-status" id="ward-status" aria-live="polite"></p>
             <p class="ward-coverage" id="ward-coverage"></p>
           </div>
-          <figure class="map-figure">
-            <div class="map">
-              <img class="map-image" src="./assets/summoners-rift.png" alt="Mapa de la Grieta del Invocador con base azul al suroeste y base roja al noreste" width="512" height="512">
-              <div class="ward-layer" id="ward-layer" aria-label="Ubicaciones de los wards"></div>
-              <p class="map-empty" id="ward-empty" hidden>Sin ubicaciones de wards para estos filtros</p>
+          <div class="vision-workspace">
+            <figure class="map-figure">
+              <div class="map">
+                <img class="map-image" src="./assets/summoners-rift.png" alt="Mapa de la Grieta del Invocador con base azul al suroeste y base roja al noreste" width="512" height="512">
+                <div class="ward-layer" id="ward-layer" aria-label="Ubicaciones de los wards"></div>
+                <p class="map-empty" id="ward-empty" hidden>Sin ubicaciones de wards para estos filtros</p>
+              </div>
+              <figcaption class="map-caption">
+                <span class="legend" id="ward-side-legend">
+                  <span><i class="swatch swatch-blue"></i> Lado azul</span>
+                  <span><i class="swatch swatch-red"></i> Lado rojo</span>
+                  <span><i class="swatch swatch-unknown"></i> Sin confirmar</span>
+                </span>
+                <span class="legend" id="ward-heat-legend" hidden>
+                  <span><i class="swatch swatch-heat"></i> Más wards en la zona</span>
+                </span>
+                <span class="map-credit">Mapa de Riot Games</span>
+              </figcaption>
+            </figure>
+            <div class="vision-history">
+              <p class="ward-summary" id="ward-summary" aria-live="polite"></p>
+              <div class="timeline">
+                <div class="timeline-label">
+                  <label for="ward-minute">Hasta el minuto</label>
+                  <output id="ward-minute-value" for="ward-minute">Todo</output>
+                  <button type="button" class="button timeline-play" id="ward-play" aria-pressed="false" disabled>Reproducir</button>
+                </div>
+                <input id="ward-minute" type="range" min="0" max="60" value="60" step="1">
+              </div>
+              <p class="timeline-instruction" id="ward-timeline-instruction"></p>
+              <section class="ward-timeline" id="ward-timeline" aria-labelledby="ward-timeline-title" hidden>
+                <div class="timeline-heading">
+                  <h3 id="ward-timeline-title">Línea de tiempo</h3>
+                  <label class="field field-compact">
+                    <span class="sr-only">Tramo de la línea de tiempo</span>
+                    <select id="ward-window"><option value="all">Partida entera</option></select>
+                  </label>
+                </div>
+                <div class="timeline-axis" id="ward-timeline-axis"></div>
+                <div class="timeline-lanes" id="ward-timeline-lanes"></div>
+                <p class="timeline-caption" id="ward-timeline-caption"></p>
+              </section>
+              <details class="panel-details" id="ward-history" hidden>
+                <summary>Historial de wards</summary>
+                <ol class="ward-history-list" id="ward-history-list"></ol>
+              </details>
+              <details class="panel-details" id="ward-match-list">
+                <summary id="ward-match-heading">Partidas con datos de wards</summary>
+                <ul id="ward-matches" class="ward-matches"></ul>
+              </details>
+              <details class="panel-details import-panel">
+                <summary>Importar ubicaciones de wards</summary>
+                <p>Carga un archivo de partidas en JSON o CSV para esta sesión.</p>
+                <div id="desktop-controls" class="desktop-controls" hidden>
+                  <div>
+                    <strong>Archivos de GRID guardados en este equipo</strong>
+                    <p id="desktop-data-status" role="status"></p>
+                  </div>
+                  <button type="button" id="desktop-reload" class="button">Recargar datos de GRID</button>
+                </div>
+                <label class="sr-only" for="ward-file">Archivo de wards</label>
+                <input type="file" id="ward-file" accept=".json,.csv,application/json,text/csv">
+                <button type="button" class="button reset-button" id="ward-reset" hidden>Quitar archivo importado</button>
+                <p id="ward-import-status" role="status"></p>
+              </details>
             </div>
-            <figcaption class="map-caption">
-              <span class="legend" id="ward-side-legend">
-                <span><i class="swatch swatch-blue"></i> Lado azul</span>
-                <span><i class="swatch swatch-red"></i> Lado rojo</span>
-                <span><i class="swatch swatch-unknown"></i> Sin confirmar</span>
-              </span>
-              <span class="legend" id="ward-heat-legend" hidden>
-                <span><i class="swatch swatch-heat"></i> Más wards en la zona</span>
-              </span>
-              <span class="map-credit">Mapa de Riot Games</span>
-            </figcaption>
-          </figure>
-          <p class="ward-summary" id="ward-summary" aria-live="polite"></p>
-          <div class="timeline">
-            <div class="timeline-label">
-              <label for="ward-minute">Hasta el minuto</label>
-              <output id="ward-minute-value" for="ward-minute">Todo</output>
-              <button type="button" class="button timeline-play" id="ward-play" aria-pressed="false" disabled>Reproducir</button>
-            </div>
-            <input id="ward-minute" type="range" min="0" max="60" value="60" step="1">
           </div>
-          <p class="timeline-instruction" id="ward-timeline-instruction"></p>
-          <section class="ward-timeline" id="ward-timeline" aria-labelledby="ward-timeline-title" hidden>
-            <div class="timeline-heading">
-              <h3 id="ward-timeline-title">Línea de tiempo</h3>
-              <label class="field field-compact">
-                <span class="sr-only">Tramo de la línea de tiempo</span>
-                <select id="ward-window"><option value="all">Partida entera</option></select>
-              </label>
-            </div>
-            <div class="timeline-axis" id="ward-timeline-axis"></div>
-            <div class="timeline-lanes" id="ward-timeline-lanes"></div>
-            <p class="timeline-caption" id="ward-timeline-caption"></p>
-          </section>
-          <details class="panel-details" id="ward-history" hidden>
-            <summary>Historial de wards</summary>
-            <ol class="ward-history-list" id="ward-history-list"></ol>
-          </details>
-          <details class="panel-details" id="ward-match-list">
-            <summary id="ward-match-heading">Partidas con datos de wards</summary>
-            <ul id="ward-matches" class="ward-matches"></ul>
-          </details>
-          <details class="panel-details import-panel">
-            <summary>Importar ubicaciones de wards</summary>
-            <p>Carga un archivo local de partidas profesionales en JSON o CSV. El conversor de Riot Events verifica la cobertura con el resumen final.</p>
-            <label class="sr-only" for="ward-file">Archivo de wards</label>
-            <input type="file" id="ward-file" accept=".json,.csv,application/json,text/csv">
-            <button type="button" class="button reset-button" id="ward-reset" hidden>Quitar archivo importado</button>
-            <p id="ward-import-status" role="status"></p>
-          </details>
         </section>
 
-        <section id="picks" class="panel" aria-labelledby="picks-title">
+        <section id="picks" class="panel" role="tabpanel" aria-labelledby="tab-picks" hidden>
           <div class="panel-header">
             <div>
               <h2 id="picks-title">Picks por campeón</h2>
@@ -202,6 +213,38 @@
               </table>
             </div>
           </details>
+        </section>
+
+        <section id="draft" class="panel" role="tabpanel" aria-labelledby="tab-draft" hidden>
+          <div class="panel-header">
+            <div>
+              <h2>Drafts y builds</h2>
+              <p>Composiciones, bloqueos y objetos por partida</p>
+            </div>
+          </div>
+          <div class="draft-controls">
+            <label class="field">
+              <span>Buscar equipo</span>
+              <input id="draft-search" type="search" placeholder="Ej. Gen.G o T1" autocomplete="off">
+            </label>
+            <label class="field">
+              <span>Partida</span>
+              <select id="draft-game"></select>
+            </label>
+            <div class="draft-pager" aria-label="Navegar entre partidas">
+              <button class="button" id="draft-prev" type="button">Anterior</button>
+              <button class="button" id="draft-next" type="button">Siguiente</button>
+            </div>
+          </div>
+          <p class="section-status" id="draft-status" role="status"></p>
+          <div id="draft-body" hidden>
+            <div class="draft-match-heading">
+              <h3 id="draft-match-title"></h3>
+              <div class="draft-links" id="draft-links"></div>
+            </div>
+            <div class="draft-teams" id="draft-teams"></div>
+            <p class="section-status" id="draft-build-status"></p>
+          </div>
         </section>
       </div>
 

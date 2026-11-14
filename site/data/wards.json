@@ -28,6 +28,14 @@
     {
       "name": "LIT Official · Breeze of Glory (4 nov.)",
       "url": "https://www.twitch.tv/videos/2919418317"
+    },
+    {
+      "name": "LoL Esports · Worlds 2026 · Bilibili Gaming vs. T1",
+      "url": "https://www.youtube.com/watch?v=bt2sO3ioJJ4"
+    },
+    {
+      "name": "LoL Esports · Worlds 2026 · Gen.G vs. Invictus Gaming",
+      "url": "https://www.youtube.com/watch?v=4BhIlGCWgno"
     }
   ],
   "games": [
@@ -173,6 +181,30 @@
       "durationSeconds": 2037,
       "date": "2026-11-04",
       "sourceUrl": "https://www.twitch.tv/videos/2919418317?t=0h33m24s",
+      "coverage": "vod"
+    },
+    {
+      "id": "2026 Season World Championship/Main Event_Semifinals_2_1",
+      "patch": "26.20",
+      "league": "Worlds 2026 Main Event",
+      "date": "2026-11-08",
+      "blueTeam": "Bilibili Gaming",
+      "redTeam": "T1",
+      "number": 1,
+      "durationSeconds": 1825,
+      "sourceUrl": "https://www.youtube.com/watch?v=bt2sO3ioJJ4&t=509s",
+      "coverage": "vod"
+    },
+    {
+      "id": "2026 Season World Championship/Main Event_Semifinals_1_1",
+      "patch": "26.20",
+      "league": "Worlds 2026 Main Event",
+      "date": "2026-11-07",
+      "blueTeam": "Gen.G",
+      "redTeam": "Invictus Gaming",
+      "number": 1,
+      "durationSeconds": 2018,
+      "sourceUrl": "https://www.youtube.com/watch?v=4BhIlGCWgno&t=664s",
       "coverage": "vod"
     }
   ],
@@ -1724,6 +1756,208 @@
       "approximate": true,
       "location": "Junto al muro inferior de la entrada central de base roja",
       "sourceUrl": "https://www.twitch.tv/videos/2919418317?t=1h1m40s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_2_1",
+      "seconds": 366,
+      "x": 0.67,
+      "y": 0.59,
+      "side": "red",
+      "observed": true,
+      "approximate": true,
+      "location": "Arbusto junto al acceso de la jungla roja al río inferior",
+      "sourceUrl": "https://www.youtube.com/watch?v=bt2sO3ioJJ4&t=875s",
+      "type": "control"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_2_1",
+      "seconds": 541,
+      "x": 0.4,
+      "y": 0.44,
+      "side": "blue",
+      "observed": true,
+      "approximate": true,
+      "location": "Arbusto del río superior junto a la calle central",
+      "sourceUrl": "https://www.youtube.com/watch?v=bt2sO3ioJJ4&t=1050s",
+      "type": "control"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_2_1",
+      "seconds": 691,
+      "x": 0.52,
+      "y": 0.68,
+      "side": "red",
+      "observed": true,
+      "approximate": true,
+      "location": "Arbusto de la jungla azul detrás del foso del dragón",
+      "sourceUrl": "https://www.youtube.com/watch?v=bt2sO3ioJJ4&t=1200s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_2_1",
+      "seconds": 1091,
+      "x": 0.44,
+      "y": 0.19,
+      "side": "red",
+      "observed": true,
+      "approximate": true,
+      "location": "Arbusto de la jungla roja, al noreste del Barón",
+      "sourceUrl": "https://www.youtube.com/watch?v=bt2sO3ioJJ4&t=1600s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_2_1",
+      "seconds": 1091,
+      "x": 0.49,
+      "y": 0.23,
+      "side": "red",
+      "observed": true,
+      "approximate": true,
+      "location": "Cruce de la jungla roja entre top y la calle central",
+      "sourceUrl": "https://www.youtube.com/watch?v=bt2sO3ioJJ4&t=1600s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_2_1",
+      "seconds": 1261,
+      "x": 0.4,
+      "y": 0.23,
+      "side": "blue",
+      "observed": true,
+      "approximate": true,
+      "location": "Exterior del foso del Barón por el lado de la jungla roja",
+      "sourceUrl": "https://www.youtube.com/watch?v=bt2sO3ioJJ4&t=1770s",
+      "type": "control"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_2_1",
+      "seconds": 1261,
+      "x": 0.38,
+      "y": 0.29,
+      "side": "blue",
+      "observed": true,
+      "approximate": true,
+      "location": "Interior del foso del Barón junto al muro oriental",
+      "sourceUrl": "https://www.youtube.com/watch?v=bt2sO3ioJJ4&t=1770s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_2_1",
+      "seconds": 1261,
+      "x": 0.46,
+      "y": 0.33,
+      "side": "blue",
+      "observed": true,
+      "approximate": true,
+      "location": "Cruce del río hacia la jungla roja, al sureste del Barón",
+      "sourceUrl": "https://www.youtube.com/watch?v=bt2sO3ioJJ4&t=1770s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_2_1",
+      "seconds": 1421,
+      "x": 0.75,
+      "y": 0.32,
+      "side": "blue",
+      "observed": true,
+      "approximate": true,
+      "location": "Dentro de la base roja junto al muro de la calle central",
+      "sourceUrl": "https://www.youtube.com/watch?v=bt2sO3ioJJ4&t=1930s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_2_1",
+      "seconds": 1421,
+      "x": 0.81,
+      "y": 0.29,
+      "side": "red",
+      "observed": true,
+      "approximate": true,
+      "location": "Dentro de la base roja cerca del inhibidor de la calle central",
+      "sourceUrl": "https://www.youtube.com/watch?v=bt2sO3ioJJ4&t=1930s",
+      "type": "control"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_1_1",
+      "seconds": 436,
+      "x": 0.72,
+      "y": 0.86,
+      "side": "blue",
+      "observed": true,
+      "approximate": true,
+      "location": "Arbusto de la jungla azul junto a la calle inferior",
+      "sourceUrl": "https://www.youtube.com/watch?v=4BhIlGCWgno&t=1100s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_1_1",
+      "seconds": 666,
+      "x": 0.24,
+      "y": 0.14,
+      "side": "blue",
+      "observed": true,
+      "approximate": true,
+      "location": "Salida de top hacia el río superior junto al muro",
+      "sourceUrl": "https://www.youtube.com/watch?v=4BhIlGCWgno&t=1330s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_1_1",
+      "seconds": 866,
+      "x": 0.77,
+      "y": 0.67,
+      "side": "blue",
+      "observed": true,
+      "approximate": true,
+      "location": "Arbusto del lado rojo entre el río inferior y bot",
+      "sourceUrl": "https://www.youtube.com/watch?v=4BhIlGCWgno&t=1530s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_1_1",
+      "seconds": 971,
+      "x": 0.62,
+      "y": 0.69,
+      "side": "red",
+      "observed": true,
+      "approximate": true,
+      "location": "Arbusto de la jungla azul en el acceso al río inferior",
+      "sourceUrl": "https://www.youtube.com/watch?v=4BhIlGCWgno&t=1635s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_1_1",
+      "seconds": 1065,
+      "x": 0.71,
+      "y": 0.49,
+      "side": "red",
+      "observed": true,
+      "approximate": true,
+      "location": "Arbusto del acceso de mid a la jungla roja",
+      "sourceUrl": "https://www.youtube.com/watch?v=4BhIlGCWgno&t=1730s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_1_1",
+      "seconds": 1266,
+      "x": 0.18,
+      "y": 0.22,
+      "side": "blue",
+      "observed": true,
+      "approximate": true,
+      "location": "Entrada de top al río superior, al noroeste del Barón",
+      "sourceUrl": "https://www.youtube.com/watch?v=4BhIlGCWgno&t=1930s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_1_1",
+      "seconds": 1786,
+      "x": 0.78,
+      "y": 0.4,
+      "side": "red",
+      "observed": true,
+      "approximate": true,
+      "location": "Junto al campamento azul de la jungla roja",
+      "sourceUrl": "https://www.youtube.com/watch?v=4BhIlGCWgno&t=2450s"
+    },
+    {
+      "gameId": "2026 Season World Championship/Main Event_Semifinals_1_1",
+      "seconds": 1786,
+      "x": 0.84,
+      "y": 0.32,
+      "side": "red",
+      "observed": true,
+      "approximate": true,
+      "location": "Exterior del muro de la base roja hacia la jungla inferior",
+      "sourceUrl": "https://www.youtube.com/watch?v=4BhIlGCWgno&t=2450s"
     }
   ]
 }
