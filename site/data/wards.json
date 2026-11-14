@@ -1,0 +1,124 @@
+{
+  "updatedAt": "2026-11-14",
+  "sources": [
+    {"name": "LoL Esports Japan · LCP Promotion", "url": "https://www.youtube.com/watch?v=qepPpuueP58"},
+    {"name": "Liga GG · CELOL Série A", "url": "https://www.youtube.com/watch?v=AzanAzaItMg"}
+  ],
+  "games": [
+    {
+      "id": "LCP/2027 Season/Promotion_FFA Finals_1_1",
+      "patch": "26.22",
+      "league": "LCP 2027 Promotion",
+      "date": "2026-11-13",
+      "blueTeam": "Saigon Warriors",
+      "redTeam": "DetonatioN FocusMe",
+      "number": 1,
+      "durationSeconds": 1745,
+      "sourceUrl": "https://www.youtube.com/watch?v=qepPpuueP58&t=1947s"
+    },
+    {
+      "id": "LigaGG/CELOL Série A/2026 Season/Split 2 Playoffs_Round 2_1_1",
+      "patch": "26.21",
+      "league": "LigaGG CELOL A 2026 Split 2 Playoffs",
+      "date": "2026-11-01",
+      "blueTeam": "EmBRAZA! Esports",
+      "redTeam": "Clã NKZ VÓRAX",
+      "number": 1,
+      "durationSeconds": 1477,
+      "sourceUrl": "https://www.youtube.com/watch?v=AzanAzaItMg&t=1220s"
+    }
+  ],
+  "wards": [
+    {
+      "gameId": "LCP/2027 Season/Promotion_FFA Finals_1_1",
+      "seconds": 158, "x": 0.88, "y": 0.94, "side": "blue",
+      "observed": true, "approximate": true,
+      "location": "Arbusto exterior de bot cerca de la torre azul",
+      "sourceUrl": "https://www.youtube.com/watch?v=qepPpuueP58&t=2105s"
+    },
+    {
+      "gameId": "LCP/2027 Season/Promotion_FFA Finals_1_1",
+      "seconds": 198, "x": 0.29, "y": 0.39, "side": "blue",
+      "observed": true, "approximate": true,
+      "location": "Arbusto del río superior, lado azul",
+      "sourceUrl": "https://www.youtube.com/watch?v=qepPpuueP58&t=2145s"
+    },
+    {
+      "gameId": "LCP/2027 Season/Promotion_FFA Finals_1_1",
+      "seconds": 318, "x": 0.77, "y": 0.77, "side": "red",
+      "observed": true, "approximate": true,
+      "location": "Salida del río inferior hacia bot",
+      "sourceUrl": "https://www.youtube.com/watch?v=qepPpuueP58&t=2265s"
+    },
+    {
+      "gameId": "LCP/2027 Season/Promotion_FFA Finals_1_1",
+      "seconds": 358, "x": 0.65, "y": 0.62, "side": "red",
+      "observed": true, "approximate": true,
+      "location": "Entrada al río inferior desde mid",
+      "sourceUrl": "https://www.youtube.com/watch?v=qepPpuueP58&t=2305s"
+    },
+    {
+      "gameId": "LCP/2027 Season/Promotion_FFA Finals_1_1",
+      "seconds": 358, "x": 0.77, "y": 0.74, "side": "blue",
+      "observed": true, "approximate": true,
+      "location": "Borde oriental del foso del dragón",
+      "sourceUrl": "https://www.youtube.com/watch?v=qepPpuueP58&t=2305s"
+    },
+    {
+      "gameId": "LCP/2027 Season/Promotion_FFA Finals_1_1",
+      "seconds": 418, "x": 0.88, "y": 0.92, "side": "blue",
+      "observed": true, "approximate": true,
+      "location": "Arbusto exterior de bot, junto a la roca",
+      "sourceUrl": "https://www.youtube.com/watch?v=qepPpuueP58&t=2365s"
+    },
+    {
+      "gameId": "LigaGG/CELOL Série A/2026 Season/Split 2 Playoffs_Round 2_1_1",
+      "seconds": 170, "x": 0.84, "y": 0.95, "side": "blue",
+      "observed": true, "approximate": true,
+      "location": "Arbusto exterior de bot cerca de la torre azul",
+      "sourceUrl": "https://www.youtube.com/watch?v=AzanAzaItMg&t=1390s"
+    },
+    {
+      "gameId": "LigaGG/CELOL Série A/2026 Season/Split 2 Playoffs_Round 2_1_1",
+      "seconds": 230, "x": 0.63, "y": 0.86, "side": "blue",
+      "observed": true, "approximate": true,
+      "location": "Triarbusto azul de bot",
+      "sourceUrl": "https://www.youtube.com/watch?v=AzanAzaItMg&t=1450s"
+    },
+    {
+      "gameId": "LigaGG/CELOL Série A/2026 Season/Split 2 Playoffs_Round 2_1_1",
+      "seconds": 350, "x": 0.71, "y": 0.60, "side": "red",
+      "observed": true, "approximate": true,
+      "location": "Arbusto del río inferior hacia la jungla roja",
+      "sourceUrl": "https://www.youtube.com/watch?v=AzanAzaItMg&t=1570s"
+    },
+    {
+      "gameId": "LigaGG/CELOL Série A/2026 Season/Split 2 Playoffs_Round 2_1_1",
+      "seconds": 370, "x": 0.68, "y": 0.77, "side": "blue",
+      "observed": true, "approximate": true,
+      "location": "Borde occidental del foso del dragón",
+      "sourceUrl": "https://www.youtube.com/watch?v=AzanAzaItMg&t=1590s"
+    },
+    {
+      "gameId": "LigaGG/CELOL Série A/2026 Season/Split 2 Playoffs_Round 2_1_1",
+      "seconds": 370, "x": 0.73, "y": 0.72, "side": "red",
+      "observed": true, "approximate": true,
+      "location": "Interior del foso del dragón",
+      "sourceUrl": "https://www.youtube.com/watch?v=AzanAzaItMg&t=1590s"
+    },
+    {
+      "gameId": "LigaGG/CELOL Série A/2026 Season/Split 2 Playoffs_Round 2_1_1",
+      "seconds": 410, "x": 0.57, "y": 0.59, "side": "blue",
+      "observed": true, "approximate": true,
+      "location": "Entrada al río inferior desde mid",
+      "sourceUrl": "https://www.youtube.com/watch?v=AzanAzaItMg&t=1630s"
+    },
+    {
+      "gameId": "LigaGG/CELOL Série A/2026 Season/Split 2 Playoffs_Round 2_1_1",
+      "seconds": 470, "x": 0.88, "y": 0.89, "side": "red",
+      "observed": true, "approximate": true,
+      "location": "Arbusto exterior de bot, junto a la roca",
+      "sourceUrl": "https://www.youtube.com/watch?v=AzanAzaItMg&t=1690s"
+    }
+  ]
+}
