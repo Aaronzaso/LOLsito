@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="./styles.css">
-    <script src="./app.js" type="module"></script>
+    <link rel="stylesheet" href="./styles.css?v=2">
+    <script src="./app.js?v=2" type="module"></script>
   </head>
   <body>
     <a class="skip-link" href="#explorador">Saltar al explorador</a>
@@ -99,7 +99,10 @@
               <select id="ward-kind"><option value="">Todos</option></select>
             </label>
           </div>
-          <p class="section-status" id="ward-status" aria-live="polite"></p>
+          <div class="ward-coverage-line">
+            <p class="section-status" id="ward-status" aria-live="polite"></p>
+            <p class="ward-coverage" id="ward-coverage"></p>
+          </div>
           <figure class="map-figure">
             <div class="map">
               <img class="map-image" src="./assets/summoners-rift.png" alt="Mapa de la Grieta del Invocador con base azul al suroeste y base roja al noreste" width="512" height="512">
@@ -129,7 +132,13 @@
           </div>
           <p class="timeline-instruction" id="ward-timeline-instruction"></p>
           <section class="ward-timeline" id="ward-timeline" aria-labelledby="ward-timeline-title" hidden>
-            <h3 id="ward-timeline-title">Línea de tiempo</h3>
+            <div class="timeline-heading">
+              <h3 id="ward-timeline-title">Línea de tiempo</h3>
+              <label class="field field-compact">
+                <span class="sr-only">Tramo de la línea de tiempo</span>
+                <select id="ward-window"><option value="all">Partida entera</option></select>
+              </label>
+            </div>
             <div class="timeline-axis" id="ward-timeline-axis"></div>
             <div class="timeline-lanes" id="ward-timeline-lanes"></div>
             <p class="timeline-caption" id="ward-timeline-caption"></p>
@@ -138,13 +147,13 @@
             <summary>Historial de wards</summary>
             <ol class="ward-history-list" id="ward-history-list"></ol>
           </details>
-          <details class="panel-details">
-            <summary>Partidas con registro de wards</summary>
+          <details class="panel-details" id="ward-match-list">
+            <summary id="ward-match-heading">Partidas con datos de wards</summary>
             <ul id="ward-matches" class="ward-matches"></ul>
           </details>
           <details class="panel-details import-panel">
             <summary>Importar ubicaciones de wards</summary>
-            <p>Carga un archivo local de partidas profesionales en JSON o CSV.</p>
+            <p>Carga un archivo local de partidas profesionales en JSON o CSV. El conversor de Riot Events verifica la cobertura con el resumen final.</p>
             <label class="sr-only" for="ward-file">Archivo de wards</label>
             <input type="file" id="ward-file" accept=".json,.csv,application/json,text/csv">
             <button type="button" class="button reset-button" id="ward-reset" hidden>Quitar archivo importado</button>

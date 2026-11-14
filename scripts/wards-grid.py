@@ -1,6 +1,7 @@
 """Convert Riot Events files from GRID into a LOLsito ward dataset."""
 
 import argparse
+from collections import Counter
 from datetime import date
 import json
 import math
@@ -102,9 +103,14 @@ def load_game(entry, folder):
     participants = {str(item['participantId']): item for item in info['participants']}
     if not participants:
         raise ValueError('El resumen no contiene participantes')
+    if 'number' in entry:
+        if type(entry['number']) is not int or entry['number'] < 1:
+            raise ValueError('number debe ser un entero positivo')
+        game['number'] = entry['number']
 
     wards = []
     skipped = 0
+    placed_by_player = Counter()
     events_file = folder / entry['events']
     with events_file.open(encoding='utf-8-sig') as stream:
         for line_number, line in enumerate(stream, start=1):
@@ -140,15 +146,32 @@ def load_game(entry, folder):
             if kind in TYPES:
                 ward['type'] = TYPES[kind]
             wards.append(ward)
+            placed_by_player[str(event['placer'])] += 1
 
     if skipped:
         print(f'{game["id"]}: {skipped} eventos de colocación sin coordenadas, tiempo o lado válidos', file=sys.stderr)
-    if not wards:
-        raise ValueError(f'{game["id"]}: el archivo no contiene colocaciones con datos válidos')
-    if game.get('durationSeconds', 0) < max(ward['seconds'] for ward in wards):
+    if game.get('durationSeconds', 0) < max((ward['seconds'] for ward in wards), default=0):
         if 'durationSeconds' in entry:
             raise ValueError('durationSeconds termina antes del último ward registrado')
         game.pop('durationSeconds', None)
+
+    reported = {key: player.get('wardsPlaced') for key, player in participants.items()}
+    team_sizes = Counter(str(player.get('teamId')) for player in participants.values())
+    counts_available = (
+        team_sizes == {'100': 5, '200': 5}
+        and all(type(count) is int and count >= 0 for count in reported.values())
+    )
+    if counts_available:
+        game['expectedWards'] = sum(reported.values())
+    verified = (
+        counts_available and game.get('durationSeconds') and not skipped
+        and all(placed_by_player[key] == count for key, count in reported.items())
+    )
+    if not wards and not verified:
+        raise ValueError(f'{game["id"]}: el archivo no contiene colocaciones con datos válidos')
+    game['coverage'] = 'complete' if verified else 'events'
+    if not verified:
+        print(f'{game["id"]}: no se pudo comprobar el historial completo con el resumen final', file=sys.stderr)
     return game, wards
 
 

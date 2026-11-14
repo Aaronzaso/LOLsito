@@ -1,6 +1,12 @@
 const byId = (id) => document.getElementById(id);
 const roles = { top: 'Top', jng: 'Jungla', mid: 'Mid', bot: 'ADC', sup: 'Soporte' };
 const sides = { blue: 'Azul', red: 'Rojo', unknown: 'Lado sin confirmar' };
+const coverageLabels = {
+  complete: 'Registro completo',
+  events: 'Eventos sin verificar cobertura',
+  vod: 'Muestra de la repetición',
+  unspecified: 'Cobertura sin verificar',
+};
 const number = new Intl.NumberFormat('es-CR');
 const percent = new Intl.NumberFormat('es-CR', { maximumFractionDigits: 1 });
 const counted = (count, singular, plural) => `${number.format(count)} ${count === 1 ? singular : plural}`;
@@ -51,7 +57,7 @@ function fillSelect(id, entries, selected, fallback) {
 }
 
 async function fetchData(filename, signal) {
-  const response = await fetch(`./data/${filename}.json`, { signal });
+  const response = await fetch(`./data/${filename}.json`, { signal, cache: 'no-cache' });
   if (!response.ok) throw new Error(`${filename}: HTTP ${response.status}`);
   return response.json();
 }
@@ -64,6 +70,7 @@ function normalizeWards(data) {
   assert(data && Array.isArray(data.games) && Array.isArray(data.wards),
     'El JSON debe incluir las listas games y wards.');
   const games = new Map();
+  const wardCounts = new Map();
   for (const game of data.games) {
     assert(game && typeof game.id === 'string' && game.id.trim() &&
       /^\d{2}\.\d{1,2}$/.test(game.patch) &&
@@ -71,6 +78,8 @@ function normalizeWards(data) {
       (!game.date || typeof game.date === 'string') &&
       (game.durationSeconds === undefined || (Number.isInteger(game.durationSeconds) && game.durationSeconds > 0)),
     'Cada partida necesita id, patch, league, blueTeam y redTeam.');
+    assert(game.coverage === undefined || Object.hasOwn(coverageLabels, game.coverage),
+      `Cobertura inválida en ${game.id}.`);
     assert(!games.has(game.id), `Partida duplicada: ${game.id}`);
     games.set(game.id, game);
   }
@@ -84,8 +93,19 @@ function normalizeWards(data) {
       `${prefix}: revisa seconds y side (blue, red o unknown).`);
     assert(!item.role || Object.hasOwn(roles, item.role), `${prefix}: rol inválido.`);
     assert(!item.type || typeof item.type === 'string', `${prefix}: tipo inválido.`);
+    const game = games.get(item.gameId);
+    assert(!game.durationSeconds || item.seconds <= game.durationSeconds, `${prefix}: el tiempo supera la duración de la partida.`);
+    assert(game.coverage !== 'complete' || (!item.observed && !item.approximate && item.side !== 'unknown'),
+      `${prefix}: un registro completo requiere eventos de colocación con coordenadas y lado.`);
+    wardCounts.set(item.gameId, (wardCounts.get(item.gameId) ?? 0) + 1);
     return item;
   });
+  for (const game of games.values()) {
+    if (game.coverage === 'complete') {
+      assert(game.durationSeconds && game.expectedWards === (wardCounts.get(game.id) ?? 0),
+        `El total del resumen final no coincide con los eventos de ${game.id}.`);
+    }
+  }
   return { games: [...games.values()], wards, sources: Array.isArray(data.sources) ? data.sources : [] };
 }
 
@@ -389,7 +409,7 @@ function renderCurrentWards(updateStatus = true) {
   const patch = selection('patch', state.picks.currentPatch);
   const wards = renderWards(patch, selection('league', 'all'), selection('role', 'all'));
   if (updateStatus && !state.pickError && !state.wardError) {
-    setText('app-status', `Parche ${patch} · ${byId('picks-count').textContent} con picks · ${number.format(wards)} wards observados`);
+    setText('app-status', `Parche ${patch} · ${byId('picks-count').textContent} con picks · ${counted(wards, 'ward en el mapa', 'wards en el mapa')}`);
   }
 }
 
@@ -413,15 +433,32 @@ function renderTimeline(game, wards, duration, seconds, key) {
     state.timelineKey = '';
     return;
   }
+  const windowSelect = byId('ward-window');
+  if (windowSelect.dataset.match !== game.id || windowSelect.dataset.duration !== String(duration)) {
+    windowSelect.dataset.match = game.id;
+    windowSelect.dataset.duration = duration;
+    const windows = [['all', 'Partida entera']];
+    for (let start = 0; start < duration; start += 300) {
+      windows.push([String(start), `${minuteSeconds(start)}–${minuteSeconds(Math.min(start + 300, duration))}`]);
+    }
+    fillSelect('ward-window', windows, 'all');
+  }
+  const windowValue = selection('ward-window', 'all');
+  const start = windowValue === 'all' ? 0 : Number(windowValue);
+  const end = windowValue === 'all' ? duration : Math.min(start + 300, duration);
+  const range = end - start;
+  key = JSON.stringify([key, windowValue]);
   if (state.timelineKey !== key) {
     state.timelineKey = key;
     const indexes = new Map(wards.map((ward, index) => [ward, index]));
     byId('ward-timeline-axis').replaceChildren(...[0, 0.25, 0.5, 0.75, 1].map((fraction) =>
-      node('span', minuteSeconds(Math.round(duration * fraction)))));
+      node('span', minuteSeconds(start + Math.round(range * fraction)))));
     const chronological = wards.toSorted((a, b) => a.seconds - b.seconds);
+    const inWindow = chronological.filter((ward) =>
+      ward.seconds >= start && (ward.seconds < end || (end === duration && ward.seconds === end)));
     const lanes = [];
     for (const [side, label] of Object.entries(sides)) {
-      const entries = chronological.filter((ward) => ward.side === side);
+      const entries = inWindow.filter((ward) => ward.side === side);
       if (!entries.length) continue;
       const lane = node('div', undefined, 'timeline-lane');
       const track = node('div', undefined, 'timeline-track');
@@ -437,7 +474,7 @@ function renderTimeline(game, wards, duration, seconds, key) {
         event.dataset.side = side;
         event.dataset.seconds = ward.seconds;
         event.dataset.index = indexes.get(ward);
-        event.style.left = `${100 * ward.seconds / duration}%`;
+        event.style.left = `${100 * (ward.seconds - start) / range}%`;
         const stack = simultaneous.get(ward.seconds);
         if (stack.length > 1) {
           const offset = stack.indexOf(ward) * 12 / (stack.length - 1) - 6;
@@ -451,7 +488,8 @@ function renderTimeline(game, wards, duration, seconds, key) {
       lane.append(node('span', side === 'unknown' ? 'Sin lado' : label, 'timeline-lane-label'), track);
       lanes.push(lane);
     }
-    byId('ward-timeline-lanes').replaceChildren(...lanes);
+    byId('ward-timeline-lanes').replaceChildren(...(lanes.length ? lanes :
+      [node('p', 'Sin wards en este tramo.', 'timeline-caption')]));
     byId('ward-history-list')?.replaceChildren(...chronological.map((ward) => {
       const item = node('li');
       const details = node('button', wardDescription(ward, game), 'history-event');
@@ -461,7 +499,8 @@ function renderTimeline(game, wards, duration, seconds, key) {
       return item;
     }));
     const method = wards.some((ward) => ward.observed) ? 'Los puntos indican cuándo se vio cada ward en la repetición.' :
-      'Los puntos indican cuándo se registró cada ward.';
+      game.coverage === 'complete' ? 'Cada punto indica el momento en que se colocó un ward.' :
+        'Los puntos indican cuándo se registró cada ward.';
     setText('ward-timeline-caption', game.durationSeconds ? method :
       `${method} La escala llega a la última observación registrada.`);
   }
@@ -470,7 +509,7 @@ function renderTimeline(game, wards, duration, seconds, key) {
     marker.setAttribute('aria-current', String(wards[Number(marker.dataset.index)] === state.selectedWard));
   }
   for (const track of byId('ward-timeline-lanes').querySelectorAll('.timeline-track')) {
-    track.style.setProperty('--timeline-progress', `${100 * seconds / duration}%`);
+    track.style.setProperty('--timeline-progress', `${100 * Math.min(1, Math.max(0, (seconds - start) / range))}%`);
   }
 }
 
@@ -479,25 +518,29 @@ function renderWards(patch, league, role) {
   const matchingGames = [...games.values()].filter((game) => gameMatches(game, patch, league));
   const ids = new Set(matchingGames.map((game) => game.id));
   const available = wards.filter((ward) => ids.has(ward.gameId));
+  const wardsByGame = new Map(matchingGames.map((game) => [game.id, []]));
+  for (const ward of available) wardsByGame.get(ward.gameId).push(ward);
+  const coverageOf = (game) => game.coverage ??
+    (wardsByGame.get(game.id).some((ward) => ward.observed) ? 'vod' : 'unspecified');
   const gameOptions = matchingGames.map((game) => {
     const gameNumber = game.number ?? game.gameNumber;
     return [game.id, `${game.blueTeam} vs. ${game.redTeam}${gameNumber ? ` · P${gameNumber}` : ''}${game.date ? ` · ${game.date.slice(0, 10)}` : ''}`];
   });
   const group = JSON.stringify([patch, league, gameOptions.map(([id]) => id)]);
-  const gameChanged = byId('ward-game').dataset.group !== group;
-  byId('ward-game').dataset.group = group;
-  const gameValue = gameChanged ? gameOptions[0]?.[0] : selection('ward-game');
-  if (gameChanged) fillSelect('ward-game', [['all', 'Todas las partidas'], ...gameOptions], gameValue, 'all');
-  const gameId = selection('ward-game', 'all');
-  byId('ward-game').title = gameOptions.find(([id]) => id === gameId)?.[1] ?? 'Todas las partidas';
+  const gameSelect = byId('ward-game');
+  const gameChanged = gameSelect.dataset.group !== group;
+  gameSelect.dataset.group = group;
   if (gameChanged) {
-    const types = [...new Set(available.map((ward) => labelType(ward.type)))].sort();
-    fillSelect('ward-kind', [['all', 'Todos los tipos'], ...types.map((type) => [type, type])],
-      selection('ward-kind', 'all'));
+    fillSelect('ward-game', [['all', 'Todas las partidas con datos'], ...gameOptions],
+      gameSelect.dataset.preferred ?? gameOptions[0]?.[0], gameOptions[0]?.[0] ?? 'all');
+    delete gameSelect.dataset.preferred;
   }
+  const gameId = selection('ward-game', 'all');
+  gameSelect.title = gameOptions.find(([id]) => id === gameId)?.[1] ?? 'Todas las partidas con datos';
+  gameSelect.disabled = !matchingGames.length;
   const minuteSlider = byId('ward-minute');
   const game = games.get(gameId);
-  const relevant = available.filter((ward) => gameId === 'all' || gameId === ward.gameId);
+  const relevant = game ? wardsByGame.get(game.id) : available;
   const observedEnd = relevant.reduce((max, ward) => Math.max(max, ward.seconds), 1);
   const duration = Math.max(observedEnd, game?.durationSeconds ?? 0);
   const sliderScope = JSON.stringify([group, gameId, duration, relevant.length]);
@@ -508,6 +551,11 @@ function renderWards(patch, league, role) {
     minuteSlider.step = 1;
     minuteSlider.value = duration;
     state.selectedWard = null;
+    state.timelineKey = '';
+    const types = [...new Set(relevant.map((ward) => labelType(ward.type)))].sort();
+    fillSelect('ward-kind', [['all', 'Todos los tipos'], ...types.map((type) => [type, type])],
+      selection('ward-kind', 'all'));
+    byId('ward-kind').disabled = !types.length;
     stopPlayback();
   }
   minuteSlider.disabled = !relevant.length;
@@ -534,16 +582,25 @@ function renderWards(patch, league, role) {
     }
   }
   toggle('ward-empty', !filtered.length);
-  setText('ward-empty', eligible.length ? 'Todavía no hay observaciones para este minuto.' :
+  setText('ward-empty', eligible.length ? 'Aún no hay wards en el historial para este minuto.' :
+    game?.coverage === 'complete' && !relevant.length ? 'El resumen final registra cero wards.' :
     available.length ? 'Ningún ward coincide con estos filtros.' : 'Sin wards verificados para esta selección.');
   const matchCount = new Set(filtered.map((ward) => ward.gameId)).size;
   setText('ward-status', state.wardError && !available.length ? 'No se pudo cargar la fuente de wards.' :
-    `${counted(filtered.length, 'ward', 'wards')} en ${counted(matchCount, 'partida', 'partidas')}`);
+    game ? `${counted(filtered.length, 'ward visible', 'wards visibles')} de ${number.format(relevant.length)}` :
+      `${counted(filtered.length, 'ward', 'wards')} en ${counted(matchCount, 'partida', 'partidas')}`);
+  const completeCount = matchingGames.filter((match) => match.coverage === 'complete').length;
+  const coverage = game ? coverageLabels[coverageOf(game)] : [
+    counted(matchingGames.length, 'partida con datos', 'partidas con datos'),
+    completeCount ? counted(completeCount, 'registro completo', 'registros completos') : '',
+  ].filter(Boolean).join(' · ');
+  setText('ward-coverage', matchingGames.length ? coverage : '');
   const summary = filtered.length
     ? [filtered.some((ward) => ward.approximate) ? 'Incluye posiciones aproximadas del VOD.' : 'Coordenadas de wards registrados.',
       filtered.some((ward) => importedIds.has(ward.gameId)) ? 'Incluye datos importados en este navegador.' : '',
-      density ? 'El color más intenso indica más observaciones en la zona.' : 'Selecciona un punto para ver su minuto y fuente.'].filter(Boolean).join(' ')
-    : eligible.length ? 'Avanza en la línea de tiempo para ver las ubicaciones registradas.'
+      density ? 'El color más intenso indica más wards en la zona.' : 'Selecciona un punto para ver su minuto y fuente.'].filter(Boolean).join(' ')
+    : game?.coverage === 'complete' && !relevant.length ? 'Se comprobó el total con el resumen final.'
+      : eligible.length ? 'Avanza en la línea de tiempo para ver las ubicaciones registradas.'
       : available.length ? 'Ajusta los filtros para ver las observaciones disponibles.'
       : `Sin coordenadas de wards verificadas en la fuente para ${patch} con estos filtros.`;
   setText('ward-summary', summary);
@@ -553,16 +610,29 @@ function renderWards(patch, league, role) {
   setText('ward-timeline-instruction', gameId === 'all' && available.length ?
     'Selecciona una partida para ver su línea de tiempo.' : '');
   const matches = byId('ward-matches');
-  if (matches) {
-    const visibleIds = new Set(eligible.map((ward) => ward.gameId));
-    const list = matchingGames.filter((game) => visibleIds.has(game.id));
-    matches.replaceChildren(...list.map((game) => {
+  if (matches && gameChanged) {
+    const labels = new Map(gameOptions);
+    matches.replaceChildren(...matchingGames.map((game) => {
       const item = node('li');
-      const label = gameOptions.find(([id]) => id === game.id)[1];
-      item.append(sourceAnchor(game.sourceUrl, label));
+      const selectMatch = node('button', labels.get(game.id), 'history-event ward-match-select');
+      selectMatch.type = 'button';
+      selectMatch.dataset.game = game.id;
+      selectMatch.addEventListener('click', () => {
+        gameSelect.value = game.id;
+        renderCurrentWards();
+      });
+      const count = wardsByGame.get(game.id).length;
+      const detail = node('span', `${counted(count, 'ward', 'wards')} · ${coverageLabels[coverageOf(game)]}`, 'ward-match-info');
+      item.append(selectMatch, detail);
+      if (safeUrl(game.sourceUrl)) detail.append(document.createTextNode(' · '),
+        sourceAnchor(game.sourceUrl, coverageOf(game) === 'vod' ? 'Repetición' : 'Fuente'));
       return item;
     }));
-    matches.hidden = !list.length;
+    setText('ward-match-heading', `Partidas con datos de wards (${number.format(matchingGames.length)})`);
+    toggle('ward-match-list', Boolean(matchingGames.length));
+  }
+  for (const button of matches?.querySelectorAll('.ward-match-select') ?? []) {
+    button.setAttribute('aria-current', String(button.dataset.game === gameId));
   }
   return filtered.length;
 }
@@ -600,7 +670,7 @@ function render() {
   if (state.pickError || state.wardError) {
     setText('app-status', 'Una fuente no se pudo cargar. Puedes consultar los datos disponibles.');
   } else {
-    setText('app-status', `Parche ${patch} · ${counted(picks, 'partida', 'partidas')} con picks · ${counted(wards, 'ward observado', 'wards observados')}`);
+    setText('app-status', `Parche ${patch} · ${counted(picks, 'partida', 'partidas')} con picks · ${counted(wards, 'ward en el mapa', 'wards en el mapa')}`);
   }
   byId('preset-live')?.setAttribute('aria-pressed', String(
     patch === state.picks.currentPatch && compare === state.picks.previousPatch && league === 'all' && role === 'all'));
@@ -640,20 +710,23 @@ async function importWards(event) {
     const text = (await file.text()).replace(/^\uFEFF/, '');
     if (state.importRequest !== request) return;
     const data = /\.csv$/i.test(file.name) ? parseCsv(text) : normalizeWards(JSON.parse(text));
-    assert(data.wards.length, 'El archivo no trae observaciones de wards.');
+    assert(data.wards.length || data.games.some((game) => game.coverage === 'complete'),
+      'El archivo no trae observaciones de wards.');
     state.importedWards = data;
     const patch = [...new Set(data.games.map((game) => game.patch))].sort(patchOrder)[0];
+    const importedGame = data.games.find((game) => game.patch === patch);
     byId('league').value = 'all';
     byId('role').value = 'all';
     updateSelectors(patch, selection('compare-patch'));
     byId('ward-game').dataset.group = '';
+    byId('ward-game').dataset.preferred = importedGame.id;
     byId('ward-minute').dataset.scope = '';
     for (const id of ['ward-kind', 'ward-side']) {
       if (byId(id)) byId(id).value = 'all';
     }
     byId('ward-minute').value = byId('ward-minute').max;
     render();
-    setText('ward-import-status', `${number.format(data.wards.length)} observaciones cargadas para esta sesión.`);
+    setText('ward-import-status', `${counted(data.wards.length, 'ward', 'wards')} en ${counted(data.games.length, 'partida importada', 'partidas importadas')} en esta sesión.`);
     toggle('ward-reset', true);
   } catch (error) {
     if (state.importRequest === request) setText('ward-import-status', `No se pudo importar el archivo. ${error.message}`);
@@ -686,6 +759,7 @@ async function start() {
   }
   byId('pick-sort')?.addEventListener('change', () => renderPicks(
     selection('patch'), selection('compare-patch', 'off'), selection('league', 'all'), selection('role', 'all')));
+  byId('ward-window').addEventListener('change', () => renderCurrentWards(false));
   const slider = byId('ward-minute');
   slider.addEventListener('input', () => {
     stopPlayback();
@@ -716,6 +790,7 @@ async function start() {
     state.importRequest += 1;
     state.importedWards = emptyWards;
     byId('ward-game').dataset.group = '';
+    byId('ward-minute').dataset.scope = '';
     setText('ward-import-status', 'Se quitaron las observaciones importadas.');
     toggle('ward-reset', false);
     updateSelectors(selection('patch'), selection('compare-patch'));

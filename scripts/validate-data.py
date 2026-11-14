@@ -20,6 +20,11 @@ def main():
     games = {game["id"]: game for game in ward_data["games"]}
     assert len(drafts) == len(picks["games"]), "IDs repetidos en picks"
     assert len(games) == len(ward_data["games"]), "IDs repetidos en el registro de wards"
+    ward_counts = Counter(ward["gameId"] for ward in ward_data["wards"])
+    for game in games.values():
+        assert game.get("coverage") in {None, "complete", "events", "vod", "unspecified"}, game
+        if game.get("coverage") == "complete":
+            assert game["expectedWards"] == ward_counts[game["id"]] and game["durationSeconds"] > 0, game
     for game in drafts.values():
         roles = Counter((pick["side"], pick["role"]) for pick in game["picks"])
         assert roles == {(side, role): 1 for side in ("blue", "red") for role in ROLES}, game["id"]
@@ -35,10 +40,13 @@ def main():
         assert not duration or ward["seconds"] <= duration, ward
         if ward.get("observed"):
             assert ward.get("approximate") and ward["sourceUrl"].startswith("https://"), ward
+        if game.get("coverage") == "complete":
+            assert not ward.get("observed") and not ward.get("approximate") and ward["side"] != "unknown", ward
         if game["id"] in drafts:
             assert game["patch"] == drafts[game["id"]]["patch"], game
     print("Partidas con picks:", dict(Counter(game["patch"] for game in drafts.values())))
     print("Wards observados:", dict(Counter(games[ward["gameId"]]["patch"] for ward in ward_data["wards"])))
+    print("Partidas con datos de wards:", dict(Counter(game["patch"] for game in games.values())))
 
 
 if __name__ == "__main__":
