@@ -7,8 +7,8 @@
     <meta name="description" content="Explora dónde wardean los profesionales de League of Legends y compara sus picks por parche.">
     <title>LOLsito · Wards y picks profesionales</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23293722'/%3E%3Cpath d='M16 8l8 8-8 8-8-8z' fill='none' stroke='%23d4eca3'/%3E%3Cpath d='M16 12l4 4-4 4-4-4z' fill='%23d4eca3'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="./styles.css?v=4">
-    <script src="./app.js?v=5" type="module"></script>
+    <link rel="stylesheet" href="./styles.css?v=5">
+    <script src="./app.js?v=6" type="module"></script>
   </head>
   <body>
     <a class="skip-link" href="#explorador">Saltar al explorador</a>
@@ -158,10 +158,14 @@
                 <p>Carga un archivo de partidas en JSON o CSV para esta sesión.</p>
                 <div id="desktop-controls" class="desktop-controls" hidden>
                   <div>
-                    <strong>Archivos de GRID guardados en este equipo</strong>
+                    <strong>Exportaciones de GRID</strong>
                     <p id="desktop-data-status" role="status"></p>
                   </div>
-                  <button type="button" id="desktop-reload" class="button">Recargar datos de GRID</button>
+                  <div class="desktop-grid-actions">
+                    <button type="button" id="desktop-import" class="button">Importar carpeta de GRID</button>
+                    <button type="button" id="desktop-reload" class="button">Recargar datos de GRID</button>
+                  </div>
+                  <p id="desktop-import-status" class="desktop-import-status" role="status"></p>
                 </div>
                 <label class="sr-only" for="ward-file">Archivo de wards</label>
                 <input type="file" id="ward-file" accept=".json,.csv,application/json,text/csv">

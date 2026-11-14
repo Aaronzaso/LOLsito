@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -24,6 +26,7 @@ internal sealed class DashboardWindow : Form
     private static readonly string SiteDirectory = Path.Combine(AppContext.BaseDirectory, "site");
     private static readonly string DataDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LOLsito");
+    private bool gridImportPending;
 
     private readonly WebView2 view = new()
     {
@@ -61,7 +64,7 @@ internal sealed class DashboardWindow : Form
             core.Settings.AreDefaultContextMenusEnabled = false;
             core.Settings.AreDefaultScriptDialogsEnabled = false;
             core.Settings.AreHostObjectsAllowed = false;
-            core.Settings.IsWebMessageEnabled = false;
+            core.Settings.IsWebMessageEnabled = true;
             core.Settings.IsStatusBarEnabled = false;
 
             core.NavigationStarting += PreventExternalNavigation;
@@ -73,6 +76,7 @@ internal sealed class DashboardWindow : Form
             core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All,
                 CoreWebView2WebResourceRequestSourceKinds.All);
             core.WebResourceRequested += ServeLocalContent;
+            core.WebMessageReceived += ReceiveDesktopMessage;
             core.Navigate(AppUrl + "/index.html?desktop=1");
         }
         catch (WebView2RuntimeNotFoundException)
@@ -117,6 +121,97 @@ internal sealed class DashboardWindow : Form
             MessageBox.Show(this, "No se pudo abrir el enlace en el navegador predeterminado.", Text,
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
+    }
+
+    private void ReceiveDesktopMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs request)
+    {
+        if (IsDisposed || Disposing || gridImportPending || !IsAppUrl(request.Source, out var uri) ||
+            uri.AbsolutePath is not ("/" or "/index.html")) return;
+
+        var message = request.WebMessageAsJson;
+        if (message.Length > 128) return;
+        using var json = JsonDocument.Parse(message);
+        var command = json.RootElement;
+        if (command.ValueKind != JsonValueKind.Object || command.GetPropertyCount() != 1 ||
+            !command.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String ||
+            type.GetString() != "grid-import") return;
+
+        gridImportPending = true;
+        // Opening a modal dialog within a WebView2 callback can re-enter the control.
+        BeginInvoke((Action)ChooseAndImportGrid);
+    }
+
+    private async void ChooseAndImportGrid()
+    {
+        try
+        {
+            if (IsDisposed || Disposing) return;
+            var defaultFolder = Path.Combine(DataDirectory, "GRID");
+            Directory.CreateDirectory(defaultFolder);
+            using var picker = new FolderBrowserDialog
+            {
+                Description = "Seleccioná la carpeta que contiene las exportaciones de GRID.",
+                UseDescriptionForTitle = true,
+                InitialDirectory = defaultFolder,
+                ShowNewFolderButton = false
+            };
+            if (picker.ShowDialog(this) != DialogResult.OK)
+            {
+                SendGridResult(false, "No se seleccionó una carpeta.");
+                return;
+            }
+
+            var (ok, message) = await RunGridImporter(picker.SelectedPath);
+            SendGridResult(ok, message);
+        }
+        catch (Win32Exception error) when (error.NativeErrorCode == 2)
+        {
+            SendGridResult(false, "Para convertir las exportaciones de GRID, instalá Python 3.11 o superior con su lanzador py.");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or Win32Exception or InvalidOperationException)
+        {
+            SendGridResult(false, $"No se pudo importar la carpeta de GRID. {error.Message}");
+        }
+        finally
+        {
+            gridImportPending = false;
+        }
+    }
+
+    private static async Task<(bool Ok, string Message)> RunGridImporter(string folder)
+    {
+        var script = Path.Combine(AppContext.BaseDirectory, "scripts", "wards-grid.py");
+        if (!File.Exists(script)) throw new FileNotFoundException("No se encontró el conversor de GRID.");
+        var command = new ProcessStartInfo("py")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+            WorkingDirectory = AppContext.BaseDirectory
+        };
+        command.Environment["PYTHONUTF8"] = "1";
+        command.Environment["PYTHONIOENCODING"] = "utf-8";
+        foreach (var arg in new[] { "-3", script, "--carpeta", folder, "--local" }) command.ArgumentList.Add(arg);
+
+        using var process = Process.Start(command) ?? throw new InvalidOperationException("No se inició el conversor.");
+        var output = process.StandardOutput.ReadToEndAsync();
+        var errors = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        var diagnostics = string.Join("\n", new[] { (await output).Trim(), (await errors).Trim() }
+            .Where(value => value.Length > 0));
+        var ok = process.ExitCode == 0;
+        if (diagnostics.Length == 0) diagnostics = ok ? "Partidas importadas." : "El conversor de GRID terminó con un error.";
+        if (diagnostics.Length > 3000) diagnostics = diagnostics[..3000] + "…";
+        return (ok, diagnostics);
+    }
+
+    private void SendGridResult(bool ok, string message)
+    {
+        if (IsDisposed || Disposing || view.CoreWebView2 is not { } core) return;
+        core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "grid-import-result", ok, message }));
     }
 
     private static (Stream? Body, int Status, string Reason, string Headers) EmptyResponse(int status, string reason) =>

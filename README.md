@@ -27,7 +27,7 @@ Los picks provienen de los marcadores de Leaguepedia. El importador adapta sus c
 
 Haz doble clic en [Abrir-LOLsito.cmd](Abrir-LOLsito.cmd) desde la carpeta del proyecto. Abre una ventana de Windows con el mapa, las pestañas, los datos y los retratos almacenados localmente. Los enlaces a las repeticiones abren el navegador predeterminado. El lanzador compila con el SDK de .NET 10 y la aplicación usa WebView2. [SDK de .NET](https://dotnet.microsoft.com/es-es/download/dotnet/10.0) · [WebView2 Runtime](https://developer.microsoft.com/es-es/microsoft-edge/webview2/)
 
-Las exportaciones convertidas quedan en `%LOCALAPPDATA%\LOLsito\wards-local.json`. Puedes incorporarlas con **Importar ubicaciones de wards → Recargar datos de GRID** en la app.
+Para importar archivos de GRID, ve a **Mapa de wards → Importar ubicaciones de wards → Importar carpeta de GRID**. Selecciona la carpeta que contiene los archivos o ZIP de GRID. La opción usa Python 3.11 o superior en Windows. Las partidas importadas quedan guardadas en `%LOCALAPPDATA%\LOLsito\wards-local.json` y se vuelven a cargar al abrir la app.
 
 ### Desarrollo web
 
@@ -74,7 +74,19 @@ Texto para pedir acceso en inglés:
 
 > I am building LOLsito, a private, non-commercial Windows analyzer. Could you confirm which of these LoL series are covered and enable File Download API access for Riot Events (Riot LiveStats) and Riot End State Summary? I need ward placement coordinates, timestamps, player IDs and final wardsPlaced totals. Please provide the GRID series IDs or authorized per-game exports for local analysis.
 
-Con acceso, localiza la serie en **Match History Viewer**, abre cada partida y descarga **Events (Riot)** y **End State Summary (Riot)**. Los nombres habituales son `events_<seriesId>_<gameNumber>_riot.jsonl` y `end_state_summary_riot_<seriesId>_<gameNumber>.json`. Si recibes archivos ZIP de serie, extrae ambos archivos correspondientes al mismo número de partida. [Referencia de File Download API](https://docs.grid.gg/public/documentation/api-reference/live-data-feed/grid-file-download-reference)
+Con acceso, localiza la serie en **Match History Viewer**, abre cada partida y descarga **Events (Riot)** y **End State Summary (Riot)**. Los nombres habituales son `events_<seriesId>_<gameNumber>_riot.jsonl` y `end_state_summary_riot_<seriesId>_<gameNumber>.json`. También sirven los ZIP de serie que contienen esos archivos. [Referencia de File Download API](https://docs.grid.gg/public/documentation/api-reference/live-data-feed/grid-file-download-reference)
+
+### Importar una carpeta de archivos o ZIP
+
+Copia las exportaciones en `%LOCALAPPDATA%\LOLsito\GRID` o en otra carpeta. Selecciónala con **Importar carpeta de GRID**. El importador empareja los dos archivos según el ID de serie y el número de partida, incluso si están dentro de ZIP. Si identifica la partida en el catálogo de LOLsito, sustituye su muestra por los eventos importados. Si el informe indica que faltan datos para identificar una partida, añade un `grid-series.json` con el ID de serie, el número de partida y el ID de LOLsito, como se muestra en la sección siguiente. Los archivos y el historial importado permanecen en el equipo.
+
+La misma operación desde PowerShell:
+
+```powershell
+py scripts\wards-grid.py --carpeta "$env:LOCALAPPDATA\LOLsito\GRID" --local
+```
+
+El flujo de emparejamiento por serie y partida toma como referencia el formato de [LoL Scouting Replay Kit](https://github.com/Boch-dev-98/lol-scouting-replay-kit#-data-format).
 
 ### Descargar con una clave autorizada
 

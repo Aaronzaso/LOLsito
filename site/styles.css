@@ -522,8 +522,12 @@ input[type="range"] { width: 100%; height: 28px; margin: 0; accent-color: var(--
 .ward-match-select[aria-current="true"] { color: var(--accent); font-weight: 700; }
 .import-panel p { margin: .6rem 0; }
 .desktop-controls { display: flex; flex-wrap: wrap; column-gap: .75rem; align-items: center; margin-block: .65rem; }
-.desktop-controls div { flex: 1 1 13rem; }
+.desktop-controls > div { flex: 1 1 13rem; }
 .desktop-controls p { margin: .2rem 0; }
+.desktop-grid-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+.desktop-grid-actions button:disabled { opacity: .55; cursor: wait; }
+.desktop-import-status { flex-basis: 100%; white-space: pre-line; overflow-wrap: anywhere; }
+.desktop-import-status:empty { display: none; }
 .import-panel input { max-width: 100%; color: var(--muted); font-size: .8rem; }
 .import-panel input::file-selector-button {
   min-height: 36px;

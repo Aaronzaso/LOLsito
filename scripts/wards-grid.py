@@ -2,6 +2,7 @@
 
 import argparse
 from collections import Counter
+from contextlib import contextmanager
 from datetime import date
 import json
 import math
@@ -11,9 +12,14 @@ import re
 import sys
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlsplit
+from zipfile import BadZipFile
+
+from grid_folder import MAX_EVENTS, GameFile, discover, explicit_teams, game_date, read_summary
 
 
 GRID_DOCS = 'https://docs.grid.gg/public/documentation/api-documentation/in-game-data/grid-file-download-api'
+PICKS = Path(__file__).resolve().parents[1] / 'site' / 'data' / 'picks.json'
+SIDES = {'100': 'blue', '200': 'red'}
 ROLES = {
     'TOP': 'top',
     'JUNGLE': 'jng',
@@ -47,6 +53,17 @@ def absolute_url(value):
     return parts.scheme == 'https' and bool(parts.netloc)
 
 
+def named_game(entry):
+    game = {key: entry[key] for key in ('id', 'league', 'date', 'blueTeam', 'redTeam', 'sourceUrl')}
+    if not all(isinstance(value, str) and value.strip() for value in game.values()):
+        raise ValueError('id, league, date, blueTeam, redTeam y sourceUrl deben tener texto')
+    if date.fromisoformat(game['date']).isoformat() != game['date']:
+        raise ValueError('date debe tener formato AAAA-MM-DD')
+    if not absolute_url(game['sourceUrl']):
+        raise ValueError('sourceUrl debe ser una URL https')
+    return game
+
+
 def patch_number(version):
     if not isinstance(version, str):
         return None
@@ -73,17 +90,8 @@ def ward_coordinates(position):
     return round((x + 120) / 14990, 6), round((14980 - z) / 15100, 6)
 
 
-def load_game(entry, folder):
-    game = {key: entry[key] for key in ('id', 'league', 'date', 'blueTeam', 'redTeam', 'sourceUrl')}
-    if not all(isinstance(value, str) and value.strip() for value in game.values()):
-        raise ValueError('id, league, date, blueTeam, redTeam y sourceUrl deben tener texto')
-    if date.fromisoformat(game['date']).isoformat() != game['date']:
-        raise ValueError('date debe tener formato AAAA-MM-DD')
-    if not absolute_url(game['sourceUrl']):
-        raise ValueError('sourceUrl debe ser una URL https')
-
-    summary = read_json(folder / entry['summary'])
-    info = summary.get('info', summary)
+def load_game(entry, info, events_file):
+    game = named_game(entry)
     actual_patch = patch_number(info.get('gameVersion'))
     declared_patch = patch_number(entry.get('patch'))
     if 'patch' in entry and not declared_patch:
@@ -113,8 +121,7 @@ def load_game(entry, folder):
     wards = []
     skipped = 0
     placed_by_player = Counter()
-    events_file = folder / entry['events']
-    with events_file.open(encoding='utf-8-sig') as stream:
+    with events_file.open(MAX_EVENTS) as stream:
         for line_number, line in enumerate(stream, start=1):
             if not line.strip():
                 continue
@@ -127,7 +134,7 @@ def load_game(entry, folder):
             point = ward_coordinates(event.get('position'))
             timestamp = event.get('gameTime')
             player = participants.get(str(event.get('placer')), {})
-            side = {'100': 'blue', '200': 'red'}.get(str(player.get('teamId')))
+            side = SIDES.get(str(player.get('teamId')))
             if not point or not side or type(timestamp) not in (float, int) or not math.isfinite(timestamp) or timestamp < 0:
                 skipped += 1
                 continue
@@ -177,6 +184,199 @@ def load_game(entry, folder):
     return game, wards
 
 
+def manifest_entries(manifest):
+    entries = read_json(manifest)
+    if not isinstance(entries, list) or not entries:
+        raise ValueError('El manifiesto debe ser una lista de fichas de partidas')
+    return [(entry, {
+        key: GameFile(manifest.parent / entry[key]) for key in ('events', 'summary')
+    }) for entry in entries]
+
+
+def item_key(value):
+    return ''.join(char for char in value.casefold() if char.isalnum()) if isinstance(value, str) else ''
+
+
+def champion_key(value):
+    key = item_key(value)
+    return {'monkeyking': 'wukong', 'nunu': 'nunuwithwillump', 'nunuwillump': 'nunuwithwillump'}.get(key, key)
+
+
+def signature(rows):
+    if len(rows) != 10 or not all(side in SIDES.values() and player and champion for side, player, champion in rows):
+        return None
+    if Counter(side for side, _, _ in rows) != {'blue': 5, 'red': 5}:
+        return None
+    return sorted(rows)
+
+
+def player_rows(info):
+    return [
+        (SIDES.get(str(participant.get('teamId'))),
+         item_key(participant.get('riotIdGameName') or participant.get('summonerName')),
+         champion_key(participant.get('championName')))
+        for participant in info.get('participants', [])
+    ]
+
+
+def pick_rows(game):
+    return [(pick['side'], item_key(pick['player']), champion_key(pick['champion'])) for pick in game['picks']]
+
+
+def check_game_match(info, game):
+    actual_date = game_date(info)
+    if actual_date and actual_date != game['date'][:10]:
+        raise ValueError('la fecha del resumen no coincide con la partida del panel')
+    observed = signature([(side, champion, champion) for side, _, champion in player_rows(info)])
+    expected = signature([(side, champion, champion) for side, _, champion in pick_rows(game)])
+    if observed and expected and observed != expected:
+        raise ValueError('los campeones por lado del resumen no coinciden con la partida del panel')
+
+
+def known_pick(info, game_number, picks):
+    patch = patch_number(info.get('gameVersion'))
+    day = game_date(info)
+    if not patch and not day:
+        return None
+    actual = signature(player_rows(info))
+    if actual is None:
+        return None
+    candidates = []
+    for game in picks.values():
+        if game['number'] != game_number or (patch and game['patch'] != patch) or (day and game['date'][:10] != day):
+            continue
+        expected = signature(pick_rows(game))
+        if expected == actual:
+            candidates.append(game)
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def pick_entry(game):
+    entry = {key: game[key] for key in ('id', 'league', 'patch', 'blueTeam', 'redTeam', 'number')}
+    entry['date'] = game['date'][:10]
+    entry['sourceUrl'] = game['source']
+    if type(game.get('durationSeconds')) is int:
+        entry['durationSeconds'] = game['durationSeconds']
+    return entry
+
+
+def matches_mapping(path, picks):
+    if not path:
+        return {}
+    mapping = {}
+    entries = read_json(path)
+    if not isinstance(entries, list):
+        raise ValueError('grid-series.json debe contener una lista de asignaciones')
+    for row in entries:
+        series = str(row['seriesId'])
+        number = row['number']
+        game_id = row['id']
+        if not re.fullmatch(r'[1-9][0-9]*', series) or type(number) is not int or number < 1:
+            raise ValueError('Cada asignación requiere un seriesId numérico y un número de partida positivo')
+        if game_id not in picks or picks[game_id]['number'] != number:
+            raise ValueError(f'{game_id}: el ID o número no coincide con la partida del panel')
+        key = (series, number)
+        if key in mapping:
+            raise ValueError(f'Serie {series}, partida {number}: asignación duplicada')
+        mapping[key] = picks[game_id]
+    return mapping
+
+
+def derive_entry(info, series, game_number, picks, mapping):
+    game = mapping.get((series, game_number)) or known_pick(info, game_number, picks)
+    if game:
+        check_game_match(info, game)
+        return pick_entry(game)
+    teams = explicit_teams(info)
+    day = game_date(info)
+    patch = patch_number(info.get('gameVersion'))
+    if not (teams.keys() == SIDES.keys() and day and patch):
+        raise ValueError(
+            'el resumen no identifica la partida. Agregá una asignación en grid-series.json '
+            'o usá un manifiesto games.json con los equipos, fecha y parche'
+        )
+    league = info.get('leagueName')
+    if not isinstance(league, str) or not league.strip():
+        league = 'GRID local'
+    return {
+        'id': f'grid-{series}-{game_number}', 'league': league, 'date': day, 'patch': patch,
+        'blueTeam': teams['100'], 'redTeam': teams['200'], 'number': game_number, 'sourceUrl': GRID_DOCS,
+    }
+
+
+def append_game(data, game_ids, entry, info, events_file):
+    game, wards = load_game(entry, info, events_file)
+    if game['id'] in game_ids:
+        raise ValueError(f'ID de partida duplicado: {game["id"]}')
+    game_ids.add(game['id'])
+    data['games'].append(game)
+    data['wards'].extend(wards)
+
+
+def scan_folder(data, game_ids, folder, mapping_path):
+    explicit_entries = {}
+    ambiguous_entries = set()
+    for manifest in sorted(folder.rglob('games.json')):
+        try:
+            for entry, files in manifest_entries(manifest):
+                key = tuple(files[kind].path.resolve() for kind in ('events', 'summary'))
+                if not all(path.is_relative_to(folder) for path in key):
+                    raise ValueError('Los archivos del manifiesto deben estar en la carpeta seleccionada')
+                if key in explicit_entries:
+                    ambiguous_entries.add(key)
+                explicit_entries[key] = entry
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            print(f'{manifest.name}: {error}', file=sys.stderr)
+    pairs, warnings = discover(folder)
+    for warning in warnings:
+        print(warning, file=sys.stderr)
+    if not pairs:
+        raise ValueError('No se encontró un par de Riot Events y Riot End State Summary en la carpeta')
+    picks = {game['id']: game for game in read_json(PICKS)['games']}
+    default_mapping = folder / 'grid-series.json'
+    mapping = matches_mapping(mapping_path or (default_mapping if default_mapping.is_file() else None), picks)
+    for (series, number), files in pairs.items():
+        try:
+            info = read_summary(files['summary'])
+            key = tuple(files[kind].path.resolve() for kind in ('events', 'summary'))
+            raw_pair = all(file.member is None for file in files.values())
+            if raw_pair and key in ambiguous_entries:
+                raise ValueError('varios manifiestos describen el mismo par de archivos')
+            entry = explicit_entries.get(key) if raw_pair else None
+            if entry:
+                if entry.get('number', number) != number:
+                    raise ValueError('El número del manifiesto no coincide con los archivos')
+                known = picks.get(entry.get('id'))
+                if known:
+                    check_game_match(info, known)
+                entry = {**entry, 'number': number}
+            else:
+                entry = derive_entry(info, series, number, picks, mapping)
+            append_game(data, game_ids, entry, info, files['events'])
+        except (OSError, ValueError, KeyError, AttributeError, TypeError, BadZipFile, RuntimeError, NotImplementedError) as error:
+            print(f'Serie {series}, partida {number}: {error}', file=sys.stderr)
+    if not data['games']:
+        raise ValueError('Ninguna partida pudo importarse. Revisá los mensajes de los archivos.')
+
+
+@contextmanager
+def local_lock(folder):
+    if os.name != 'nt':
+        yield
+        return
+
+    # All LOLsito desktop instances and local CLI imports share this lock.
+    import msvcrt
+    with (folder / '.wards-local.lock').open('a+b') as lock:
+        lock.seek(0)
+        msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+        try:
+            yield
+        finally:
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+
+
 def save_local(data):
     """Replace the same match by ID, retaining other local imports."""
     local_app_data = os.environ.get('LOCALAPPDATA')
@@ -185,6 +385,12 @@ def save_local(data):
     folder = Path(local_app_data) / 'LOLsito'
     folder.mkdir(parents=True, exist_ok=True)
     target = folder / 'wards-local.json'
+    with local_lock(folder):
+        merge_local(data, target)
+    return target
+
+
+def merge_local(data, target):
     if target.exists():
         previous = read_json(target)
         complete_ids = {game['id'] for game in previous['games'] if game['coverage'] == 'complete'}
@@ -200,7 +406,7 @@ def save_local(data):
 
     pending = None
     try:
-        with NamedTemporaryFile(mode='w', encoding='utf-8', dir=folder, suffix='.tmp', delete=False) as stream:
+        with NamedTemporaryFile(mode='w', encoding='utf-8', dir=target.parent, suffix='.tmp', delete=False) as stream:
             pending = Path(stream.name)
             json.dump(data, stream, ensure_ascii=False)
             stream.write('\n')
@@ -208,38 +414,43 @@ def save_local(data):
     finally:
         if pending is not None:
             pending.unlink(missing_ok=True)
-    return target
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('manifest', type=Path, help='JSON con la lista de fichas de partidas y sus archivos de GRID')
+    parser.add_argument('manifest', type=Path, nargs='?', help='JSON con la lista de fichas de partidas y sus archivos de GRID')
     parser.add_argument('output', type=Path, nargs='?', help='Ruta del JSON de wards para importar en LOLsito')
+    parser.add_argument('--carpeta', '--folder', type=Path, dest='folder', help='Busca pares Riot Events y Riot End State Summary en una carpeta')
+    parser.add_argument('--mapeo', '--mapping', type=Path, dest='mapping', help='Asignaciones opcionales de partidas GRID a IDs del panel')
+    parser.add_argument('--salida', type=Path, help='Ruta del JSON al usar --carpeta sin --local')
     parser.add_argument('--local', action='store_true', help='Guarda las partidas en la biblioteca local de LOLsito para Windows')
     args = parser.parse_args()
-    if args.local == (args.output is not None):
+    if bool(args.folder) == bool(args.manifest):
+        parser.error('Indica un manifiesto o usa --carpeta')
+    if (args.mapping or args.salida) and not args.folder:
+        parser.error('--mapeo y --salida corresponden a --carpeta')
+    output = args.output or args.salida
+    if args.local == (output is not None):
         parser.error('Indica una ruta de salida o usa --local')
     try:
-        entries = read_json(args.manifest)
-        if not isinstance(entries, list) or not entries:
-            raise ValueError('El manifiesto debe ser una lista de fichas de partidas')
         data = {'updatedAt': date.today().isoformat(), 'sources': [{'name': 'Riot Events (GRID)', 'url': GRID_DOCS}], 'games': [], 'wards': []}
         game_ids = set()
-        for entry in entries:
-            game, wards = load_game(entry, args.manifest.parent)
-            if game['id'] in game_ids:
-                raise ValueError(f'ID de partida duplicado: {game["id"]}')
-            game_ids.add(game['id'])
-            data['games'].append(game)
-            data['wards'].extend(wards)
+        if args.folder:
+            scan_folder(data, game_ids, args.folder.resolve(), args.mapping)
+        else:
+            for entry, files in manifest_entries(args.manifest):
+                append_game(data, game_ids, entry, read_summary(files['summary']), files['events'])
         if args.local:
             target = save_local(data)
         else:
-            target = args.output
+            target = output
             with target.open('x', encoding='utf-8') as stream:
                 json.dump(data, stream, ensure_ascii=False, indent=2)
                 stream.write('\n')
-    except (OSError, ValueError, KeyError, AttributeError, TypeError) as error:
+    except (OSError, ValueError, KeyError, AttributeError, TypeError, BadZipFile) as error:
         parser.exit(1, f'Error al convertir wards: {error}\n')
     print(f'{len(data["wards"])} wards de {len(data["games"])} partidas en {target}')
 

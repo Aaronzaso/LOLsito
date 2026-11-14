@@ -13,6 +13,8 @@
     <Content Include="../site/**/*" Exclude="../site/data/wards-local.json"
              Link="site/%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../scripts/wards-grid.py;../scripts/grid_folder.py" Link="scripts/%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="KeepWinFormsWebView" BeforeTargets="ResolveAssemblyReferences">
     <ItemGroup>

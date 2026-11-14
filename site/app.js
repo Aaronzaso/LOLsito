@@ -917,17 +917,76 @@ async function importWards(event) {
 async function loadLocalWards() {
   try {
     const response = await fetch('./data/wards-local.json', { cache: 'no-store', signal: AbortSignal.timeout(10_000) });
-    const dataset = response.status === 404 ? emptyWards : normalizeWards(await response.json());
     assert(response.ok || response.status === 404, 'No se pudo abrir el archivo local.');
+    const dataset = response.status === 404 ? emptyWards : normalizeWards(await response.json());
     state.localWards = dataset;
     setText('desktop-data-status', dataset.games.length ?
       `${counted(dataset.games.length, 'partida guardada', 'partidas guardadas')} en este equipo.` :
-      'Tus exportaciones de GRID aparecerán aquí tras la conversión.');
+      'Elige la carpeta con los archivos Events y End State Summary de Riot. También puedes importar los ZIP.');
     return true;
   } catch (error) {
     setText('desktop-data-status', `Revisa el archivo local de wards. ${error.message}`);
     return false;
   }
+}
+
+async function refreshLocalWards(selectImport = false) {
+  const previous = new Map(state.localWards.games.map((game) => [game.id, JSON.stringify(game)]));
+  if (!await loadLocalWards()) return;
+  const imported = selectImport ? state.localWards.games.find((game) => previous.get(game.id) !== JSON.stringify(game)) : null;
+  const gameId = imported?.id ?? selection('ward-game', 'all');
+  if (imported) {
+    for (const id of ['league', 'role', 'ward-kind', 'ward-side']) byId(id).value = 'all';
+  }
+  if (gameId !== 'all') byId('ward-game').dataset.preferred = gameId;
+  byId('ward-game').dataset.group = '';
+  byId('ward-minute').dataset.scope = '';
+  updateSelectors(imported?.patch ?? selection('patch'), selection('compare-patch'));
+  renderSources();
+  render();
+}
+
+function configureDesktopImport() {
+  const importButton = byId('desktop-import');
+  const reloadButton = byId('desktop-reload');
+  const bridge = window.chrome?.webview;
+  importButton.hidden = !bridge;
+  const setBusy = (busy) => {
+    importButton.disabled = busy;
+    reloadButton.disabled = busy;
+  };
+  reloadButton.addEventListener('click', async () => {
+    setBusy(true);
+    try {
+      await refreshLocalWards();
+    } finally {
+      setBusy(false);
+    }
+  });
+  if (!bridge) return;
+  let waitingForImport = false;
+  importButton.addEventListener('click', () => {
+    waitingForImport = true;
+    setBusy(true);
+    setText('desktop-import-status', 'Selecciona la carpeta de las descargas de GRID.');
+    try {
+      bridge.postMessage({ type: 'grid-import' });
+    } catch (error) {
+      waitingForImport = false;
+      setBusy(false);
+      setText('desktop-import-status', `No se pudo iniciar la importación. ${error.message}`);
+    }
+  });
+  bridge.addEventListener('message', async ({ data }) => {
+    if (data?.type !== 'grid-import-result' || !waitingForImport) return;
+    waitingForImport = false;
+    setText('desktop-import-status', data.message);
+    try {
+      if (data.ok) await refreshLocalWards(true);
+    } finally {
+      setBusy(false);
+    }
+  });
 }
 
 async function start() {
@@ -960,23 +1019,7 @@ async function start() {
   toggle('desktop-controls', desktop);
   renderSources();
   choosePreset('pro');
-  byId('desktop-reload')?.addEventListener('click', async (event) => {
-    event.currentTarget.disabled = true;
-    const button = event.currentTarget;
-    try {
-      const game = selection('ward-game', 'all');
-      if (await loadLocalWards()) {
-        if (game !== 'all') byId('ward-game').dataset.preferred = game;
-        byId('ward-game').dataset.group = '';
-        byId('ward-minute').dataset.scope = '';
-        updateSelectors(selection('patch'), selection('compare-patch'));
-        renderSources();
-        render();
-      }
-    } finally {
-      button.disabled = false;
-    }
-  });
+  if (desktop) configureDesktopImport();
   byId('patch').addEventListener('change', (event) => {
     const patch = event.target.value;
     const comparison = selection('compare-patch');
